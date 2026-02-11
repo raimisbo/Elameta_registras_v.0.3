@@ -97,6 +97,7 @@ COLUMNS: list[dict] = [
         "width": 140,
         "default": True,
     },
+
     # ---------------- Kabinimas (nauja struktūra) ----------------
     {
         "key": "ktl_kabinimo_budas",
@@ -167,7 +168,6 @@ COLUMNS: list[dict] = [
         "align": "right",
     },
 
-
     # ---------------- Paslauga (paviršius / dažymas) ----------------
     {
         "key": "paruosimas",
@@ -196,43 +196,50 @@ COLUMNS: list[dict] = [
         "width": 160,
         "default": False,
     },
-{
-    "key": "partiju_dydziai",
-    "label": "Partijų dydžiai",
-    "type": "char",
-    "filter": "text",
-    "searchable": True,
-    "width": 140,
-    "default": True,
-},
-{
-    "key": "metiniai_kiekiai_display",
-    "label": "Metiniai kiekiai",
-    "type": "virtual",
-    "filter": "text",
-    "searchable": False,
-    "width": 130,
-    "default": True,
-},
-{
-    "key": "projekto_gyvavimo_display",
-    "label": "Projekto laikotarpis",
-    "type": "virtual",
-    "filter": "text",
-    "searchable": False,
-    "width": 160,
-    "default": True,
-},
-    # --- NAUJA: padengimo storis (µm) ---
     {
-        "key": "padengimo_storis_um",
-        "label": "Storis, µm",
-        "type": "number",
-        "filter": "range",
+        "key": "ktl_dangos_storis_display",
+        "label": "KTL storis, µm",
+        "type": "char",
+        "filter": "text",
         "searchable": False,
-        "width": 110,
-        "default": False,
-        "align": "right",
+        "width": 120,
+        "default": True,
+    },
+    {
+        "key": "miltai_dangos_storis_display",
+        "label": "Miltai storis, µm",
+        "type": "char",
+        "filter": "text",
+        "searchable": False,
+        "width": 130,
+        "default": True,
+    },
+    {
+        "key": "partiju_dydziai",
+        "label": "Partijų dydžiai",
+        "type": "char",
+        "filter": "text",
+        "searchable": True,
+        "width": 140,
+        "default": True,
+    },
+    {
+        "key": "metiniai_kiekiai_display",
+        "label": "Metiniai kiekiai",
+        "type": "virtual",
+        "filter": "text",
+        "searchable": False,
+        "width": 130,
+        "default": True,
+    },
+    {
+        "key": "projekto_gyvavimo_display",
+        "label": "Projekto laikotarpis",
+        "type": "virtual",
+        "filter": "text",
+        "searchable": False,
+        "width": 160,
+        "default": True,
     },
     {
         "key": "spalva",
@@ -266,7 +273,6 @@ COLUMNS: list[dict] = [
         "default": False,
     },
     {
-        # buvo date -> dabar darbo dienų skaičius
         "key": "atlikimo_terminas",
         "label": "Atlikimo terminas (d.d.)",
         "type": "number",

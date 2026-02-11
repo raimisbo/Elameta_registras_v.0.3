@@ -27,6 +27,12 @@
         {% elif c.key == "matmenys_xyz" %}
           {{ it.matmenys_xyz|default:"—" }}
 
+        {% elif c.key == "ktl_dangos_storis_display" %}
+          {% firstof it.ktl_dangos_storis_display "—" %}
+
+        {% elif c.key == "miltai_dangos_storis_display" %}
+          {% firstof it.miltai_dangos_storis_display "—" %}
+
         {% elif c.key == "kaina_eur" %}
           {% if it.kaina_min is not None and it.kaina_max is not None %}
             {% if it.kaina_min == it.kaina_max %}

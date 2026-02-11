@@ -29,13 +29,11 @@ class Pozicija(models.Model):
     # Pagrindiniai
     klientas = models.CharField("Klientas", max_length=255, blank=True, default="")
     projektas = models.CharField("Projektas", max_length=255, blank=True, default="")
-
     poz_kodas = models.CharField("Pozicijos kodas", max_length=100, blank=True, default="")
     poz_pavad = models.CharField("Pozicijos pavadinimas", max_length=255, blank=True, default="")
 
     # Medžiaga / detalė
     metalas = models.CharField("Metalas", max_length=120, blank=True, default="")
-
     metalo_storis = models.DecimalField(
         "Metalo storis",
         max_digits=6,
@@ -63,7 +61,7 @@ class Pozicija(models.Model):
     ktl_gylis_mm = models.DecimalField("KTL gylis (mm)", max_digits=10, decimal_places=1, null=True, blank=True)
     ktl_kabinimas_aprasymas = models.TextField("KTL kabinimo aprašymas", blank=True, default="")
 
-    # KTL dangos storis (µm) – atskiras nuo Miltų
+    # KTL dangos storis
     ktl_dangos_storis_um = models.DecimalField(
         "KTL dangos storis (µm)",
         max_digits=10,
@@ -71,8 +69,15 @@ class Pozicija(models.Model):
         null=True,
         blank=True,
     )
+    # NEW: tekstinis formatas (pvz. "12-13", "3<>6", "33 +/- 5")
+    ktl_dangos_storis_txt = models.CharField(
+        "KTL dangos storis (tekstas)",
+        max_length=64,
+        blank=True,
+        default="",
+    )
 
-    # KTL sandauga DB (I×A×G) – UI read-only, DB reikšmę skaičiuoja serveris
+    # DB saugoma KTL matmenų sandauga (I×A×G)
     ktl_matmenu_sandauga_db = models.DecimalField(
         "KTL matmenų sandauga (I×A×G)",
         max_digits=20,
@@ -81,10 +86,10 @@ class Pozicija(models.Model):
         blank=True,
     )
 
-    # KTL pastabos (atskirai nuo bendrų)
+    # KTL pastabos
     ktl_pastabos = models.TextField("KTL pastabos", blank=True, default="")
 
-    # --- Kabinimas (Miltai) ---
+    # --- Miltai ---
     miltai_kiekis_per_valanda = models.DecimalField(
         "Miltai: kiekis per valandą",
         max_digits=10,
@@ -96,7 +101,6 @@ class Pozicija(models.Model):
     miltai_faktinis_kiekis_reme = models.IntegerField("Miltai: faktinis kiekis rėme", null=True, blank=True)
     miltai_kabinimas_aprasymas = models.TextField("Miltai: kabinimo aprašymas", blank=True, default="")
 
-    # Miltai faktinis kiekis per val. (atskiras laukas)
     miltai_faktinis_per_valanda = models.DecimalField(
         "Miltai: faktinis kiekis per valandą",
         max_digits=10,
@@ -105,7 +109,7 @@ class Pozicija(models.Model):
         blank=True,
     )
 
-    # Miltai dangos storis (µm) – atskiras nuo KTL
+    # Miltai dangos storis
     miltai_dangos_storis_um = models.DecimalField(
         "Miltai dangos storis (µm)",
         max_digits=10,
@@ -113,66 +117,53 @@ class Pozicija(models.Model):
         null=True,
         blank=True,
     )
+    # NEW: tekstinis formatas
+    miltai_dangos_storis_txt = models.CharField(
+        "Miltai dangos storis (tekstas)",
+        max_length=64,
+        blank=True,
+        default="",
+    )
 
-    # Miltai pastabos (atskirai nuo bendrų)
+    # Miltai pastabos
     miltai_pastabos = models.TextField("Miltai pastabos", blank=True, default="")
 
-    # Paruošimas / padengimas (bendra Paslaugos bloko dalis)
+    # --- Paslauga (checkbox'ai) ---
+    paslauga_ktl = models.BooleanField("KTL", default=False)
+    paslauga_miltai = models.BooleanField("Miltai", default=False)
+    paslauga_paruosimas = models.BooleanField("Paruošimas", default=False)
+
+    # Legacy spalva
+    spalva = models.CharField("Spalva", max_length=120, blank=True, default="")
+
+    # Legacy bendras dangos storis
+    padengimo_storis_um = models.CharField("Padengimo storis", max_length=120, blank=True, default="")
+
+    # Miltų identifikacija
+    miltu_kodas = models.CharField("Miltų kodas", max_length=120, blank=True, default="")
+    miltu_spalva = models.CharField("Miltų spalva", max_length=120, blank=True, default="")
+    miltu_tiekejas = models.CharField("Miltų tiekėjas", max_length=120, blank=True, default="")
+    miltu_blizgumas = models.CharField("Miltų blizgumas", max_length=120, blank=True, default="")
+    miltu_kaina = models.DecimalField("Miltų kaina", max_digits=12, decimal_places=4, null=True, blank=True)
+
+    # Bendri paslaugos laukai
     paruosimas = models.CharField("Paruošimas", max_length=200, blank=True, default="")
     padengimas = models.CharField("Padengimas", max_length=200, blank=True, default="")
     padengimo_standartas = models.CharField("Padengimo standartas", max_length=200, blank=True, default="")
+    paslaugu_pastabos = models.TextField("Paslaugų pastabos", blank=True, default="")
 
-    # Bendri paslaugos kiekiai / planavimas (ne KTL/Miltai)
-    partiju_dydziai = models.CharField("Partijų dydžiai", max_length=255, blank=True, default="")
+    # Kiekiai / laikotarpis
+    partiju_dydziai = models.CharField("Partijų dydžiai", max_length=200, blank=True, default="")
     metinis_kiekis_nuo = models.IntegerField("Metinis kiekis nuo", null=True, blank=True)
     metinis_kiekis_iki = models.IntegerField("Metinis kiekis iki", null=True, blank=True)
     projekto_gyvavimo_nuo = models.DateField("Projekto gyvavimo nuo", null=True, blank=True)
     projekto_gyvavimo_iki = models.DateField("Projekto gyvavimo iki", null=True, blank=True)
 
-
-    # Legacy spalva (pasiliekam suderinamumui; UI naudosi Miltai spalvą)
-    spalva = models.CharField("Spalva", max_length=120, blank=True, default="")
-
-    # Legacy storis (po 0029 – tekstinis). UI nenaudosi, bet paliekam istorijai/suderinamumui.
-    padengimo_storis_um = models.CharField(
-        "Padengimo storis (µm)",
-        max_length=32,
-        blank=True,
-        default="",
-    )
-
-    # Paslaugos logika: KTL / Miltai / Paruošimas
-    paslauga_ktl = models.BooleanField("KTL", default=False)
-    paslauga_miltai = models.BooleanField("Miltai", default=False)
-    paslauga_paruosimas = models.BooleanField("Paruošimas", default=False)
-
-    # Miltai bloko laukai
-    miltu_kodas = models.CharField("Miltelių kodas", max_length=100, blank=True, default="")
-    miltu_spalva = models.CharField("Miltelių spalva", max_length=120, blank=True, default="")
-    miltu_tiekejas = models.CharField("Miltelių tiekėjas", max_length=120, blank=True, default="")
-    miltu_blizgumas = models.CharField("Blizgumas", max_length=50, blank=True, default="")
-    miltu_kaina = models.DecimalField("Miltelių kaina", max_digits=12, decimal_places=4, null=True, blank=True)
-
-    paslaugu_pastabos = models.TextField("Paslaugų pastabos", blank=True, default="")
-
-    # Maskavimas (legacy tipas + tekstas; realus maskavimas – eilutėmis)
-    maskavimo_tipas = models.CharField(
-        "Maskavimas",
-        max_length=10,
-        choices=MASKAVIMO_TIPAS_CHOICES,
-        default="nera",
-        blank=False,
-    )
-    maskavimas = models.TextField("Maskavimo aprašymas", max_length=200, blank=True, default="")
-
-    # --- Terminai ---
+    # Terminai / kokybė / pakavimas
     atlikimo_terminas = models.IntegerField("Atlikimo terminas (d.d.)", null=True, blank=True)
     atlikimo_terminas_data = models.DateField("Atlikimo terminas (data)", null=True, blank=True)
-
-    # Kokybė / testai
     testai_kokybe = models.CharField("Testai / kokybė", max_length=255, blank=True, default="")
 
-    # Pakavimas
     pakavimo_tipas = models.CharField(
         "Pakavimo tipas",
         max_length=20,
@@ -180,152 +171,107 @@ class Pozicija(models.Model):
         blank=True,
         default="",
     )
-    pakavimas = models.CharField("Pakavimas", max_length=255, blank=True, default="")
+    pakavimas = models.TextField("Pakavimas", blank=True, default="")
     instrukcija = models.TextField("Instrukcija", blank=True, default="")
 
-    # --- Papildomos paslaugos ---
     papildomos_paslaugos = models.CharField(
         "Papildomos paslaugos",
-        max_length=4,
+        max_length=10,
         choices=PAPILDOMOS_PASLAUGOS_CHOICES,
         default="ne",
-        blank=False,
     )
-    papildomos_paslaugos_aprasymas = models.TextField(
-        "Papildomų paslaugų aprašymas",
-        blank=True,
-        default="",
+    papildomos_paslaugos_aprasymas = models.TextField("Papildomų paslaugų aprašymas", blank=True, default="")
+
+    # Maskavimas / pastabos
+    maskavimo_tipas = models.CharField(
+        "Maskavimo tipas",
+        max_length=10,
+        choices=MASKAVIMO_TIPAS_CHOICES,
+        default="nera",
     )
-
-    # Kaina (sinchronizuojama iš kainų eilučių) – 4 skaitmenys po kablelio
-    kaina_eur = models.DecimalField("Kaina (EUR)", max_digits=12, decimal_places=4, null=True, blank=True)
-
-    # Bendros pastabos
+    maskavimas = models.TextField("Maskavimas", blank=True, default="")
     pastabos = models.TextField("Pastabos", blank=True, default="")
 
-    created = models.DateTimeField("Sukurta", auto_now_add=True)
-    updated = models.DateTimeField("Atnaujinta", auto_now=True)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
 
     history = HistoricalRecords()
 
     class Meta:
-        ordering = ["-created"]
+        ordering = ["-updated", "-id"]
 
-    def save(self, *args, **kwargs):
-        # HARD constraint (sutarta): jei planuojamas dažymas (KTL arba Miltai) – Paruošimas privalomas
-        if self.paslauga_ktl or self.paslauga_miltai:
-            self.paslauga_paruosimas = True
+    def __str__(self):
+        return self.poz_kodas or f"Pozicija #{self.pk}"
 
-        # Server-side sandauga (sutarta C): I×A×G, UI read-only, DB reikšmė – tiesos šaltinis
-        self.ktl_matmenu_sandauga_db = None
-        if self.ktl_ilgis_mm is not None and self.ktl_aukstis_mm is not None and self.ktl_gylis_mm is not None:
-            try:
-                val = self.ktl_ilgis_mm * self.ktl_aukstis_mm * self.ktl_gylis_mm
-                self.ktl_matmenu_sandauga_db = val.quantize(Decimal("0.001"))
-            except (InvalidOperation, Exception):
-                self.ktl_matmenu_sandauga_db = None
+    @property
+    def matmenys_xyz(self) -> str:
+        vals = []
+        for v in (self.x_mm, self.y_mm, self.z_mm):
+            vals.append(str(v).rstrip("0").rstrip(".") if v is not None else "—")
+        return " x ".join(vals)
 
-        super().save(*args, **kwargs)
+    @property
+    def metiniai_kiekiai_display(self) -> str:
+        if self.metinis_kiekis_nuo is None and self.metinis_kiekis_iki is None:
+            return ""
+        return f"{self.metinis_kiekis_nuo or ''}–{self.metinis_kiekis_iki or ''}".strip("–")
+
+    @property
+    def projekto_gyvavimo_display(self) -> str:
+        if not self.projekto_gyvavimo_nuo and not self.projekto_gyvavimo_iki:
+            return ""
+        nuo = self.projekto_gyvavimo_nuo.isoformat() if self.projekto_gyvavimo_nuo else ""
+        iki = self.projekto_gyvavimo_iki.isoformat() if self.projekto_gyvavimo_iki else ""
+        return f"{nuo}–{iki}".strip("–")
+
+    @property
+    def kaina_eur(self):
+        akt = self.kainos_eilutes.filter(busena="aktuali").order_by("-prioritetas", "-id").first()
+        return akt.kaina if akt else None
 
     @property
     def ktl_matmenu_sandauga(self):
-        """
-        Suderinamumui su tuo, kas jau naudota projekte:
-        - jei DB reikšmė yra -> grąžinam ją
-        - jei nėra -> skaičiuojam iš matmenų
-        """
         if self.ktl_matmenu_sandauga_db is not None:
             return self.ktl_matmenu_sandauga_db
         if self.ktl_ilgis_mm is None or self.ktl_aukstis_mm is None or self.ktl_gylis_mm is None:
             return None
         try:
-            return self.ktl_ilgis_mm * self.ktl_aukstis_mm * self.ktl_gylis_mm
-        except Exception:
+            return (Decimal(self.ktl_ilgis_mm) * Decimal(self.ktl_aukstis_mm) * Decimal(self.ktl_gylis_mm)).quantize(
+                Decimal("0.001")
+            )
+        except (InvalidOperation, TypeError):
             return None
 
-    def __str__(self):
-        return f"{self.poz_kodas or self.id} — {self.poz_pavad}".strip()
-
-    # ---- Matmenys XYZ (suvestinė) ----
-    @staticmethod
-    def _fmt_dim(val: Decimal | None) -> str:
-        if val is None:
-            return "—"
-        s = format(val, "f")
-        if "." in s:
-            s = s.rstrip("0").rstrip(".")
-        return s or "0"
-
-    @property
-    def matmenys_xyz(self) -> str:
-        if self.x_mm is None and self.y_mm is None and self.z_mm is None:
-            return "—"
-        x = self._fmt_dim(self.x_mm)
-        y = self._fmt_dim(self.y_mm)
-        z = self._fmt_dim(self.z_mm)
-        return f"{x}×{y}×{z} mm"
-
-    # ---- Kainos API (naudojama views) ----
-    def aktualios_kainos(self):
-        qs = self.kainos_eilutes.filter(busena="aktuali")
-        field_names = {f.name for f in qs.model._meta.get_fields()}
-        order_fields = []
-        if "prioritetas" in field_names:
-            order_fields.append("prioritetas")
-        if "created" in field_names:
-            order_fields.append("-created")
-        if order_fields:
-            qs = qs.order_by(*order_fields)
-        return qs
-
-    def get_kaina_for_qty(self, qty):
-        try:
-            q = int(qty) if qty is not None else None
-        except (TypeError, ValueError):
-            q = None
-
-        lines = list(self.aktualios_kainos())
-
-        if q is not None:
-            for l in lines:
-                if getattr(l, "yra_fiksuota", False) and getattr(l, "fiksuotas_kiekis", None) == q:
-                    return getattr(l, "kaina", None)
-
-        if q is not None:
-            for l in lines:
-                kn = getattr(l, "kiekis_nuo", None)
-                kk = getattr(l, "kiekis_iki", None)
-                if kn is None and kk is None:
-                    continue
-                if kn is None:
-                    ok = q <= kk
-                elif kk is None:
-                    ok = q >= kn
-                else:
-                    ok = (kn <= q <= kk)
-                if ok:
-                    return getattr(l, "kaina", None)
-
-        for l in lines:
-            k = getattr(l, "kaina", None)
-            if k is not None:
-                return k
-        return None
-
-
+    def save(self, *args, **kwargs):
+        if self.ktl_ilgis_mm is not None and self.ktl_aukstis_mm is not None and self.ktl_gylis_mm is not None:
+            try:
+                self.ktl_matmenu_sandauga_db = (
+                    Decimal(self.ktl_ilgis_mm) * Decimal(self.ktl_aukstis_mm) * Decimal(self.ktl_gylis_mm)
+                ).quantize(Decimal("0.001"))
+            except (InvalidOperation, TypeError):
+                self.ktl_matmenu_sandauga_db = None
+        else:
+            self.ktl_matmenu_sandauga_db = None
+        super().save(*args, **kwargs)
 
     @property
-    def metalo_storiai_display(self):
-        vals = list(
-            self.metalo_storio_eilutes
-            .filter(storis_mm__isnull=False)
-            .values_list("storis_mm", flat=True)
-        )
-        if vals:
-            return ", ".join(f"{v} mm" for v in vals)
-        if self.metalo_storis is not None:
-            return f"{self.metalo_storis} mm"
-        return "—"
+    def ktl_dangos_storis_display(self) -> str:
+        if (self.ktl_dangos_storis_txt or "").strip():
+            return self.ktl_dangos_storis_txt.strip()
+        if self.ktl_dangos_storis_um is not None:
+            s = str(self.ktl_dangos_storis_um)
+            return s.rstrip("0").rstrip(".")
+        return ""
+
+    @property
+    def miltai_dangos_storis_display(self) -> str:
+        if (self.miltai_dangos_storis_txt or "").strip():
+            return self.miltai_dangos_storis_txt.strip()
+        if self.miltai_dangos_storis_um is not None:
+            s = str(self.miltai_dangos_storis_um)
+            return s.rstrip("0").rstrip(".")
+        return ""
+
 
 class MaskavimoEilute(models.Model):
     PASLAUGA_CHOICES = [
@@ -334,14 +280,10 @@ class MaskavimoEilute(models.Model):
     ]
 
     pozicija = models.ForeignKey(Pozicija, on_delete=models.CASCADE, related_name="maskavimo_eilutes")
-
-    # Nauja: KTL/Miltai atskyrimas (sutarta: visi seni įrašai laikomi KTL)
     paslauga = models.CharField("Paslauga", max_length=10, choices=PASLAUGA_CHOICES, default="ktl")
-
     maskuote = models.CharField("Maskuotė", max_length=255, blank=True, default="")
     vietu_kiekis = models.PositiveIntegerField("Maskavimo vietų kiekis", null=True, blank=True)
     aprasymas = models.TextField("Aprašymas", blank=True, default="")
-
     created = models.DateTimeField("Sukurta", auto_now_add=True)
     updated = models.DateTimeField("Atnaujinta", auto_now=True)
 
@@ -349,36 +291,45 @@ class MaskavimoEilute(models.Model):
         ordering = ["id"]
 
     def __str__(self):
-        txt = (self.maskuote or "").strip()
-        if txt and self.vietu_kiekis is not None:
-            return f"{txt} ({self.vietu_kiekis})"
-        if txt:
-            return txt
-        if self.vietu_kiekis is not None:
-            return str(self.vietu_kiekis)
-        return f"Maskavimas #{self.pk or 'new'}"
+        return f"{self.get_paslauga_display()} / {self.maskuote or '—'}"
 
 
+class KainosEilute(models.Model):
+    BUSENA_CHOICES = [
+        ("aktuali", "Aktuali"),
+        ("sena", "Sena"),
+        ("pasiulymas", "Pasiūlymas"),
+    ]
 
-    @property
-    def metiniai_kiekiai_display(self) -> str:
-        if self.metinis_kiekis_nuo is not None and self.metinis_kiekis_iki is not None:
-            return f"{self.metinis_kiekis_nuo}–{self.metinis_kiekis_iki}"
-        if self.metinis_kiekis_nuo is not None:
-            return str(self.metinis_kiekis_nuo)
-        if self.metinis_kiekis_iki is not None:
-            return str(self.metinis_kiekis_iki)
-        return ""
+    pozicija = models.ForeignKey(Pozicija, on_delete=models.CASCADE, related_name="kainos_eilutes")
+    kaina = models.DecimalField("Kaina", max_digits=12, decimal_places=4, null=True, blank=True)
+    matas = models.CharField("Matas", max_length=50, blank=True, default="vnt.")
+    yra_fiksuota = models.BooleanField("Yra fiksuota", default=False)
+    fiksuotas_kiekis = models.IntegerField("Fiksuotas kiekis", null=True, blank=True)
+    kiekis_nuo = models.IntegerField("Kiekis nuo", null=True, blank=True)
+    kiekis_iki = models.IntegerField("Kiekis iki", null=True, blank=True)
+    galioja_nuo = models.DateField("Galioja nuo", null=True, blank=True)
+    galioja_iki = models.DateField("Galioja iki", null=True, blank=True)
+    busena = models.CharField("Būsena", max_length=20, choices=BUSENA_CHOICES, default="aktuali")
+    prioritetas = models.IntegerField("Prioritetas", default=0)
+    pastaba = models.TextField("Pastaba", blank=True, default="")
+    created = models.DateTimeField("Sukurta", auto_now_add=True)
+    updated = models.DateTimeField("Atnaujinta", auto_now=True)
 
-    @property
-    def projekto_gyvavimo_display(self) -> str:
-        if self.projekto_gyvavimo_nuo and self.projekto_gyvavimo_iki:
-            return f"{self.projekto_gyvavimo_nuo} – {self.projekto_gyvavimo_iki}"
-        if self.projekto_gyvavimo_nuo:
-            return str(self.projekto_gyvavimo_nuo)
-        if self.projekto_gyvavimo_iki:
-            return str(self.projekto_gyvavimo_iki)
-        return ""
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-updated", "-id"]
+
+    def __str__(self):
+        return f"{self.pozicija_id} / {self.busena} / {self.kaina or '—'}"
+
+
+def breziniu_upload_to(instance, filename: str):
+    base, ext = os.path.splitext(filename)
+    safe = slugify(base) or "brezinys"
+    return f"pozicijos/{instance.pozicija_id}/{safe}{ext.lower()}"
+
 
 class PozicijosBrezinys(models.Model):
     pozicija = models.ForeignKey(Pozicija, on_delete=models.CASCADE, related_name="breziniai")
@@ -407,66 +358,17 @@ class PozicijosBrezinys(models.Model):
 
     @property
     def ext(self) -> str:
-        name = getattr(self.failas, "name", "") or ""
-        return os.path.splitext(name)[1].lower().lstrip(".")
+        _, ext = os.path.splitext(self.filename)
+        return ext.lower().lstrip(".")
 
     @property
-    def is_step(self) -> bool:
-        return self.ext in ("stp", "step")
-
-    def _preview_relpath(self) -> str:
-        base = os.path.splitext(self.filename)[0]
-        slug = slugify(base)[:80] or "brezinys"
-        pk = self.pk or "tmp"
-        return f"pozicijos/breziniai/previews/{slug}-{pk}.png"
-
-    def _legacy_preview_relpath(self) -> str:
-        name = getattr(self.failas, "name", "") or ""
-        if not name:
-            return ""
-        root, _ = os.path.splitext(name)
-        return f"{root}.png"
-
-    @property
-    def thumb_url(self) -> str:
+    def thumb_url(self):
         if self.preview:
             try:
                 return self.preview.url
             except Exception:
-                return ""
-        return ""
-
-
-class KainosEilute(models.Model):
-    pozicija = models.ForeignKey(Pozicija, on_delete=models.CASCADE, related_name="kainos_eilutes")
-
-    # po 0028: 4 skaitmenys po kablelio
-    kaina = models.DecimalField("Kaina", max_digits=12, decimal_places=4, null=True, blank=True)
-    matas = models.CharField("Matas", max_length=50, blank=True, default="")
-
-    yra_fiksuota = models.BooleanField("Fiksuota", default=False)
-    fiksuotas_kiekis = models.IntegerField("Fiksuotas kiekis", null=True, blank=True)
-
-    kiekis_nuo = models.IntegerField("Kiekis nuo", null=True, blank=True)
-    kiekis_iki = models.IntegerField("Kiekis iki", null=True, blank=True)
-
-    galioja_nuo = models.DateField("Galioja nuo", null=True, blank=True)
-    galioja_iki = models.DateField("Galioja iki", null=True, blank=True)
-
-    busena = models.CharField("Būsena", max_length=50, blank=True, default="")
-    prioritetas = models.IntegerField("Prioritetas", default=0)
-    pastaba = models.CharField("Pastaba", max_length=255, blank=True, default="")
-
-    created = models.DateTimeField("Sukurta", auto_now_add=True)
-    updated = models.DateTimeField("Atnaujinta", auto_now=True)
-
-    history = HistoricalRecords()
-
-    class Meta:
-        ordering = ["-created"]
-
-    def __str__(self):
-        return f"{self.pozicija_id} | {self.kaina} {self.matas}".strip()
+                return None
+        return None
 
 
 class MetaloStorisEilute(models.Model):
