@@ -9,7 +9,6 @@ from django.forms import modelformset_factory
 
 from .models import Pozicija, PozicijosBrezinys, MaskavimoEilute
 
-
 KTL_KABINIMO_CHOICES = [
     ("", "—"),
     ("girliandos", "Girliandos"),
@@ -18,8 +17,9 @@ KTL_KABINIMO_CHOICES = [
     ("specialus", "Specialus"),
 ]
 
+
 _RE_NUM = re.compile(r"^\d+(?:[.,]\d+)?$")
-_RE_RANGE = re.compile(r"^\d+(?:[.,]\d+)?\s*(?:-|\.\.|<>|to)\s*\d+(?:[.,]\d+)?$", re.IGNORECASE)
+_RE_RANGE = re.compile(r"^\d+(?:[.,]\d+)?\s*(?:-|\.\.|<>|<>)\s*\d+(?:[.,]\d+)?$")
 _RE_CMP = re.compile(r"^(>=|<=|>|<)\s*\d+(?:[.,]\d+)?$")
 _RE_PM = re.compile(r"^\d+(?:[.,]\d+)?\s*(?:\+/-|±)\s*\d+(?:[.,]\d+)?$")
 
@@ -32,7 +32,7 @@ def _norm_thickness(value: str) -> str:
     s = s.replace("–", "-").replace("—", "-").replace("−", "-")
     s = s.replace("±", "+/-")
     s = re.sub(r"\.\.", "-", s)
-    s = re.sub(r"\bto\b", "-", s, flags=re.IGNORECASE)
+    s = s.replace(" to ", "-")
     s = s.replace(",", ".")
     s = re.sub(r"\s+", " ", s).strip()
     s = re.sub(r"\s*-\s*", "-", s)
@@ -47,6 +47,9 @@ def _parse_decimal_1dp(s: str) -> Decimal:
 
 
 def _validate_thickness_expr(raw: str) -> tuple[str, Decimal | None]:
+    """
+    Return (normalized_text, numeric_or_none)
+    """
     s = _norm_thickness(raw)
     if not s:
         return "", None
@@ -67,7 +70,7 @@ def _validate_thickness_expr(raw: str) -> tuple[str, Decimal | None]:
         d_right = Decimal(right)
         if d_right < 0:
             raise forms.ValidationError("Po '+/-' turi būti teigiamas skaičius.")
-        _ = Decimal(left)
+        _ = Decimal(left)  # validacija
         return s, None
 
     if _RE_CMP.fullmatch(s):
@@ -76,17 +79,8 @@ def _validate_thickness_expr(raw: str) -> tuple[str, Decimal | None]:
     raise forms.ValidationError("Netinkamas formatas. Pvz.: 12.5, 12-13, 3<>6, 33 +/- 5, >=12")
 
 
-def _to_int_str(v):
-    if v is None or v == "":
-        return ""
-    try:
-        d = Decimal(str(v))
-        return str(int(d))
-    except Exception:
-        return str(v)
-
-
 class PozicijaForm(forms.ModelForm):
+    # Override: leidžiam tekstinį storio formatą
     ktl_dangos_storis_um = forms.CharField(
         required=False,
         label="KTL dangos storis (µm)",
@@ -140,16 +134,28 @@ class PozicijaForm(forms.ModelForm):
             "ktl_ilgis_mm": forms.NumberInput(attrs={"min": 0, "step": "1", "inputmode": "numeric"}),
             "ktl_aukstis_mm": forms.NumberInput(attrs={"min": 0, "step": "1", "inputmode": "numeric"}),
             "ktl_gylis_mm": forms.NumberInput(attrs={"min": 0, "step": "1", "inputmode": "numeric"}),
-            "ktl_kabinimas_aprasymas": forms.Textarea(attrs={"rows": 2, "data-autoresize": "1"}),
-            "ktl_pastabos": forms.Textarea(attrs={"rows": 2, "data-autoresize": "1"}),
+
+            # ŠITIE 4 LAUKAI – pilno pločio iš karto
+            "ktl_kabinimas_aprasymas": forms.Textarea(
+                attrs={"rows": 2, "data-autoresize": "1", "style": "width:100%; box-sizing:border-box;"}
+            ),
+            "ktl_pastabos": forms.Textarea(
+                attrs={"rows": 2, "data-autoresize": "1", "style": "width:100%; box-sizing:border-box;"}
+            ),
 
             "miltu_kaina": forms.NumberInput(attrs={"min": 0, "step": "0.0001", "inputmode": "decimal", "data-decimals": "4"}),
             "miltai_kiekis_per_valanda": forms.NumberInput(attrs={"min": 0, "step": "0.1", "inputmode": "decimal", "data-decimals": "1"}),
             "miltai_faktinis_per_valanda": forms.NumberInput(attrs={"min": 0, "step": "0.1", "inputmode": "decimal", "data-decimals": "1"}),
             "miltai_detaliu_kiekis_reme": forms.NumberInput(attrs={"min": 0, "step": 1, "inputmode": "numeric"}),
             "miltai_faktinis_kiekis_reme": forms.NumberInput(attrs={"min": 0, "step": 1, "inputmode": "numeric"}),
-            "miltai_kabinimas_aprasymas": forms.Textarea(attrs={"rows": 2, "data-autoresize": "1"}),
-            "miltai_pastabos": forms.Textarea(attrs={"rows": 2, "data-autoresize": "1"}),
+
+            # ŠITIE 2 – pilno pločio iš karto
+            "miltai_kabinimas_aprasymas": forms.Textarea(
+                attrs={"rows": 2, "data-autoresize": "1", "style": "width:100%; box-sizing:border-box;"}
+            ),
+            "miltai_pastabos": forms.Textarea(
+                attrs={"rows": 2, "data-autoresize": "1", "style": "width:100%; box-sizing:border-box;"}
+            ),
 
             "partiju_dydziai": forms.TextInput(attrs={"placeholder": "pvz. 50, 100, 250"}),
             "metinis_kiekis_nuo": forms.NumberInput(attrs={"min": 0}),
@@ -166,20 +172,14 @@ class PozicijaForm(forms.ModelForm):
             self.fields["ktl_aukstis_mm"].label = "A"
             self.fields["ktl_gylis_mm"].label = "G"
 
-        # Edit lange I/A/G rodom be .0
-        if self.instance and self.instance.pk and not self.is_bound:
-            self.initial["ktl_ilgis_mm"] = _to_int_str(self.instance.ktl_ilgis_mm)
-            self.initial["ktl_aukstis_mm"] = _to_int_str(self.instance.ktl_aukstis_mm)
-            self.initial["ktl_gylis_mm"] = _to_int_str(self.instance.ktl_gylis_mm)
-
-        # initial rodymas dangos storiams
+        # initial: pirmiau txt, jei nėra – numeric
         if self.instance and self.instance.pk:
-            if getattr(self.instance, "ktl_dangos_storis_txt", ""):
+            if self.instance.ktl_dangos_storis_txt:
                 self.fields["ktl_dangos_storis_um"].initial = self.instance.ktl_dangos_storis_txt
             elif self.instance.ktl_dangos_storis_um is not None:
                 self.fields["ktl_dangos_storis_um"].initial = str(self.instance.ktl_dangos_storis_um)
 
-            if getattr(self.instance, "miltai_dangos_storis_txt", ""):
+            if self.instance.miltai_dangos_storis_txt:
                 self.fields["miltai_dangos_storis_um"].initial = self.instance.miltai_dangos_storis_txt
             elif self.instance.miltai_dangos_storis_um is not None:
                 self.fields["miltai_dangos_storis_um"].initial = str(self.instance.miltai_dangos_storis_um)
@@ -198,6 +198,7 @@ class PozicijaForm(forms.ModelForm):
             except (InvalidOperation, ValueError):
                 self.add_error("metalo_storis", "Įveskite skaičių (mm), pvz. 1.50")
 
+        # KTL dangos storis
         try:
             ktl_raw = (self.data.get("ktl_dangos_storis_um") or "").strip()
             ktl_txt, ktl_num = _validate_thickness_expr(ktl_raw)
@@ -206,6 +207,7 @@ class PozicijaForm(forms.ModelForm):
         except forms.ValidationError as e:
             self.add_error("ktl_dangos_storis_um", e)
 
+        # Miltai dangos storis
         try:
             m_raw = (self.data.get("miltai_dangos_storis_um") or "").strip()
             m_txt, m_num = _validate_thickness_expr(m_raw)
@@ -214,6 +216,7 @@ class PozicijaForm(forms.ModelForm):
         except forms.ValidationError as e:
             self.add_error("miltai_dangos_storis_um", e)
 
+        # paslaugų logika
         ktl = bool(cleaned.get("paslauga_ktl"))
         miltai = bool(cleaned.get("paslauga_miltai"))
         par = bool(cleaned.get("paslauga_paruosimas"))

@@ -2,41 +2,84 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from django.db.models import Q, QuerySet
 
 from ..schemas.columns import COLUMNS
 
+# ============================================================================
+# Virtual / UI key -> real ORM laukas
+# ============================================================================
+FIELD_KEY_MAP: Dict[str, str] = {
+    "kaina_eur": "kainos_eilutes__kaina",
+    "ktl_dangos_storis_display": "ktl_dangos_storis_txt",
+    "miltai_dangos_storis_display": "miltai_dangos_storis_txt",
+}
 
-# Kurie stulpeliai gali būti rikiuojami – pagal key -> realų DB lauką.
-# Virtualūs ('brez_count', 'dok_count', ir pan.) čia nepatenka.
-SORTABLE_FIELDS: Dict[str, str] = {
-    c["key"]: c.get("order_field", c["key"])
-    for c in COLUMNS
-    if c.get("type") != "virtual"
+TEXT_FILTER_FIELDS = {
+    "klientas",
+    "projektas",
+    "poz_kodas",
+    "poz_pavad",
+    "metalas",
+    "padengimas",
+    "padengimo_standartas",
+    "spalva",
+    "partiju_dydziai",
+    "pakavimas",
+    "maskavimas",
+    "testai_kokybe",
+    "ktl_dangos_storis_txt",
+    "miltai_dangos_storis_txt",
+}
+
+DECIMAL_RANGE_FIELDS = {
+    "plotas",
+    "svoris",
+    "kainos_eilutes__kaina",  # mapintas iš kaina_eur
+}
+
+INT_RANGE_FIELDS = {
+    "atlikimo_terminas",
 }
 
 
-def build_numeric_range_q(field_name: str, expr: str) -> Q:
+def _model_field_names(model) -> set[str]:
     """
-    Decimal tipo (plotas/svoris) filtro interpretacija.
+    SVARBU: čia turi būti ir reverse relation vardai (pvz. 'kainos_eilutes'),
+    todėl nenaudojam tik concrete=True.
+    """
+    names: set[str] = set()
+    for f in model._meta.get_fields():
+        n = getattr(f, "name", None)
+        if n:
+            names.add(n)
+    return names
 
-    Palaikoma:
-      "10..20"   -> >=10 ir <=20
-      ">5"       -> >=5
-      ">=5"      -> >=5
-      "<12.5"    -> <=12.5
-      "<=12.5"   -> <=12.5
-      "15"       -> ==15
-      "=15"      -> ==15
 
-    Kablelį leidžiam kaip dešimtainį skirtuką: "12,5" -> 12.5.
-    Jei išraiška nekorektiška – grąžinam tuščią Q().
+def resolve_field_key(raw_key: str, model_field_names: set[str]) -> Optional[str]:
+    if not raw_key:
+        return None
+
+    mapped = FIELD_KEY_MAP.get(raw_key, raw_key)
+    base = mapped.split("__", 1)[0]
+
+    if base not in model_field_names:
+        return None
+
+    return mapped
+
+
+def build_numeric_range_q(field_name: str, expr: str) -> Optional[Q]:
+    """
+    Decimal filtro interpretacija:
+      10..20, >5, >=5, <12.5, <=12.5, 15, =15
+    Jei formatas blogas -> None
     """
     raw = (expr or "").strip()
     if not raw:
-        return Q()
+        return None
 
     raw = raw.replace(",", ".")
 
@@ -54,36 +97,34 @@ def build_numeric_range_q(field_name: str, expr: str) -> Q:
                 max_val = Decimal(right)
 
         elif raw.startswith(">="):
-            value = Decimal(raw[2:].strip())
-            min_val = value
+            min_val = Decimal(raw[2:].strip())
 
         elif raw.startswith("<="):
-            value = Decimal(raw[2:].strip())
-            max_val = value
+            max_val = Decimal(raw[2:].strip())
 
         elif raw.startswith("="):
-            value = Decimal(raw[1:].strip())
-            min_val = value
-            max_val = value
+            v = Decimal(raw[1:].strip())
+            min_val = v
+            max_val = v
 
         elif raw[0] in (">", "<"):
             op = raw[0]
             val_str = raw[1:].strip()
             if not val_str:
-                return Q()
-            value = Decimal(val_str)
+                return None
+            v = Decimal(val_str)
             if op == ">":
-                min_val = value
+                min_val = v
             else:
-                max_val = value
+                max_val = v
 
         else:
-            value = Decimal(raw)
-            min_val = value
-            max_val = value
+            v = Decimal(raw)
+            min_val = v
+            max_val = v
 
-    except (InvalidOperation, ValueError):
-        return Q()
+    except (InvalidOperation, ValueError, IndexError):
+        return None
 
     q = Q()
     if min_val is not None:
@@ -93,16 +134,15 @@ def build_numeric_range_q(field_name: str, expr: str) -> Q:
     return q
 
 
-def build_int_range_q(field_name: str, expr: str) -> Q:
+def build_int_range_q(field_name: str, expr: str) -> Optional[Q]:
     """
-    Integer tipo (pvz. atlikimo_terminas darbo dienomis) filtro interpretacija.
-
-    Palaikoma:
-      "10..20", ">5", ">=5", "<12", "<=12", "15", "=15"
+    Integer filtro interpretacija:
+      10..20, >5, >=5, <12, <=12, 15, =15
+    Jei formatas blogas -> None
     """
     raw = (expr or "").strip()
     if not raw:
-        return Q()
+        return None
 
     min_val = None
     max_val = None
@@ -132,7 +172,7 @@ def build_int_range_q(field_name: str, expr: str) -> Q:
             op = raw[0]
             val_str = raw[1:].strip()
             if not val_str:
-                return Q()
+                return None
             v = int(val_str)
             if op == ">":
                 min_val = v
@@ -144,8 +184,8 @@ def build_int_range_q(field_name: str, expr: str) -> Q:
             min_val = v
             max_val = v
 
-    except ValueError:
-        return Q()
+    except (ValueError, IndexError):
+        return None
 
     q = Q()
     if min_val is not None:
@@ -155,36 +195,21 @@ def build_int_range_q(field_name: str, expr: str) -> Q:
     return q
 
 
-# =============================================================================
-#  Stulpelių matomumas
-# =============================================================================
+# ============================================================================
+# Matomi stulpeliai
+# ============================================================================
 
 def visible_cols_from_request(request) -> List[str]:
-    """
-    Atkuria, kurie stulpeliai turi būti rodomi.
-
-    Taisyklės (SVARBU dėl sinchronizacijos su JS):
-    - Jei request'e NĖRA 'cols' parametro: naudojam schema default=True (serverinis fallback).
-    - Jei request'e YRA 'cols' parametras: laikom jį autoritetingu ir GRĄŽINAM TIK TĄ SĄRAŠĄ
-      (išvalę nežinomus key + dedupe), NIEKO papildomai nepridedam.
-
-    Taip išvengiam situacijos, kai:
-    - frontas rodo 6 "Numatytuosius" stulpelius,
-    - o backas į tbody prideda papildomų default=True stulpelių,
-    - ir tada "Kaina" pradeda rodyti ne tą stulpelį.
-    """
     known_keys = [c["key"] for c in COLUMNS]
     known_set = set(known_keys)
     default_keys = [c["key"] for c in COLUMNS if c.get("default")]
 
-    # kritinis skirtumas: tikrinam parametrų buvimą, ne reikšmės "truthiness"
     if "cols" not in request.GET:
         return default_keys
 
     cols_param = request.GET.get("cols", "")
-
-    # Parse + dedupe (išlaikom eiliškumą)
     raw_list = [c for c in (cols_param or "").split(",") if c]
+
     seen = set()
     cols: List[str] = []
     for k in raw_list:
@@ -192,24 +217,14 @@ def visible_cols_from_request(request) -> List[str]:
             cols.append(k)
             seen.add(k)
 
-    # jei buvo pateikta, bet po valymo nieko neliko – grąžinam tuščią (kad nesusiveltų stulpeliai)
     return cols
 
 
-# =============================================================================
-#  Filtrai
-# =============================================================================
+# ============================================================================
+# Filtrai
+# ============================================================================
 
 def apply_filters(qs: QuerySet, request) -> QuerySet:
-    """
-    Pritaiko globalų ir per-stulpelinius filtrus.
-
-    Globalus:
-      ?q=...  -> klientas/projektas/poz_kodas/poz_pavad (icontains)
-
-    Per-stulpeliniai:
-      ?f[field]=...
-    """
     q_global = request.GET.get("q", "").strip()
     if q_global:
         qs = qs.filter(
@@ -219,58 +234,96 @@ def apply_filters(qs: QuerySet, request) -> QuerySet:
             | Q(poz_pavad__icontains=q_global)
         )
 
+    model_fields = _model_field_names(qs.model)
+
     for key, value in request.GET.items():
-        if not key.startswith("f["):
+        if not key.startswith("f[") or not key.endswith("]"):
             continue
 
-        field = key[2:-1]  # f[field] -> field
+        raw_key = key[2:-1]
         value = (value or "").strip()
-        if not value:
+        if not raw_key or not value:
             continue
 
-        # tekstiniai filtrai – icontains
-        if field in [
-            "klientas", "projektas", "poz_kodas", "poz_pavad",
-            "metalas", "padengimas", "padengimo_standartas", "spalva",
-            "partiju_dydziai",
-            "pakavimas", "maskavimas", "testai_kokybe",
-        ]:
+        field = resolve_field_key(raw_key, model_fields)
+        if not field:
+            # Nežinomas key -> ignoruojam
+            continue
+
+        # Tekstiniai laukai
+        if field in TEXT_FILTER_FIELDS:
             qs = qs.filter(**{f"{field}__icontains": value})
+            continue
 
-        # Decimal range
-        elif field in ["plotas", "svoris"]:
-            qs = qs.filter(build_numeric_range_q(field, value))
+        # Decimal range (įskaitant kainą)
+        if field in DECIMAL_RANGE_FIELDS:
+            q_num = build_numeric_range_q(field, value)
+            if q_num is None:
+                # Blogas numeric formatas => 0 rezultatų
+                return qs.none()
+            qs = qs.filter(q_num)
+            if field.startswith("kainos_eilutes__"):
+                qs = qs.distinct()
+            continue
 
-        # Integer range (darbo dienos)
-        elif field in ["atlikimo_terminas"]:
-            qs = qs.filter(build_int_range_q(field, value))
+        # Integer range
+        if field in INT_RANGE_FIELDS:
+            q_int = build_int_range_q(field, value)
+            if q_int is None:
+                return qs.none()
+            qs = qs.filter(q_int)
+            continue
 
-        # visi kiti – tikslus atitikimas
-        else:
-            qs = qs.filter(**{field: value})
+        # fallback exact
+        qs = qs.filter(**{field: value})
 
     return qs
 
 
-# =============================================================================
-#  Rikiavimas
-# =============================================================================
+# ============================================================================
+# Rikiavimas
+# ============================================================================
+
+def _sortable_fields(model_field_names: set[str]) -> Dict[str, str]:
+    result: Dict[str, str] = {}
+
+    for c in COLUMNS:
+        if c.get("type") == "virtual":
+            continue
+        raw_key = c["key"]
+        candidate = c.get("order_field", raw_key)
+
+        resolved = resolve_field_key(candidate, model_field_names)
+        if resolved:
+            result[raw_key] = resolved
+
+    # papildomi virtualūs key, kuriuos leidžiam rikiuoti
+    for raw_key in ["kaina_eur", "ktl_dangos_storis_display", "miltai_dangos_storis_display"]:
+        resolved = resolve_field_key(raw_key, model_field_names)
+        if resolved:
+            result[raw_key] = resolved
+
+    return result
+
 
 def apply_sorting(qs: QuerySet, request) -> QuerySet:
-    """
-    Rikiavimas pagal ?sort=key&dir=asc/desc
-    """
     sort = request.GET.get("sort")
     direction = request.GET.get("dir", "asc")
 
     if not sort:
         return qs.order_by("-created", "-id")
 
-    field = SORTABLE_FIELDS.get(sort)
+    model_fields = _model_field_names(qs.model)
+    sortable = _sortable_fields(model_fields)
+
+    field = sortable.get(sort)
     if not field:
         return qs.order_by("-created", "-id")
 
-    if direction == "desc":
-        field = "-" + field
+    order_expr = field if direction == "asc" else f"-{field}"
+    qs = qs.order_by(order_expr, "-id")
 
-    return qs.order_by(field, "-id")
+    if field.startswith("kainos_eilutes__"):
+        qs = qs.distinct()
+
+    return qs

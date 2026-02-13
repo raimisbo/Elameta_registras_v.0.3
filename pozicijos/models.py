@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 from django.db import models
 from django.utils.text import slugify
@@ -331,44 +332,84 @@ def breziniu_upload_to(instance, filename: str):
     return f"pozicijos/{instance.pozicija_id}/{safe}{ext.lower()}"
 
 
-class PozicijosBrezinys(models.Model):
-    pozicija = models.ForeignKey(Pozicija, on_delete=models.CASCADE, related_name="breziniai")
-    pavadinimas = models.CharField("Pavadinimas", max_length=255, blank=True)
-    failas = models.FileField("Brėžinys", upload_to="pozicijos/breziniai/%Y/%m/")
-    uploaded = models.DateTimeField(auto_now_add=True)
 
-    preview = models.ImageField(
-        "Miniatiūra",
-        upload_to="pozicijos/breziniai/previews/",
-        null=True,
-        blank=True,
-        help_text="Automatiškai sugeneruota PNG miniatiūra.",
+class PozicijosBrezinys(models.Model):
+    pozicija = models.ForeignKey(
+        "Pozicija",
+        on_delete=models.CASCADE,
+        related_name="breziniai",
     )
+    pavadinimas = models.CharField(max_length=255, blank=True, default="")
+    failas = models.FileField(upload_to="breziniai/%Y/%m/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-uploaded"]
+        ordering = ["-uploaded_at", "-id"]
+        verbose_name = "Pozicijos brėžinys"
+        verbose_name_plural = "Pozicijų brėžiniai"
 
-    def __str__(self):
-        return self.pavadinimas or getattr(self.failas, "name", "")
+    def __str__(self) -> str:
+        return self.pavadinimas or self.filename or f"Brezinys #{self.pk}"
 
     @property
     def filename(self) -> str:
-        name = getattr(self.failas, "name", "") or ""
-        return os.path.basename(name)
+        if not self.failas:
+            return ""
+        return Path(self.failas.name or "").name
 
     @property
     def ext(self) -> str:
-        _, ext = os.path.splitext(self.filename)
-        return ext.lower().lstrip(".")
+        if not self.failas:
+            return ""
+        return Path(self.failas.name or "").suffix.lower()
 
     @property
-    def thumb_url(self):
-        if self.preview:
+    def ext_clean(self) -> str:
+        e = self.ext
+        return e[1:] if e.startswith(".") else e
+
+    @property
+    def is_step(self) -> bool:
+        return self.ext_clean in {"stp", "step"}
+
+    @property
+    def is_pdf(self) -> bool:
+        return self.ext_clean == "pdf"
+
+    @property
+    def is_image(self) -> bool:
+        return self.ext_clean in {"jpg", "jpeg", "png", "webp", "bmp", "tif", "tiff", "gif"}
+
+    def _preview_relpath(self) -> str:
+        pk = self.pk or "tmp"
+        return f"pozicijos/breziniai/previews/brezinys-{pk}.png"
+
+    @property
+    def thumb_url(self) -> str:
+        """
+        Grąžina TIK realų thumbnail URL.
+        Jei preview neegzistuoja -> tuščia eilutė.
+        """
+        if not self.failas:
+            return ""
+
+        storage = self.failas.storage
+        rel = self._preview_relpath()
+        try:
+            if storage.exists(rel):
+                return storage.url(rel)
+        except Exception:
+            pass
+
+        # tiesioginiams vaizdams galima rodyti originalą kaip thumbnail
+        if self.is_image:
             try:
-                return self.preview.url
+                return self.failas.url
             except Exception:
-                return None
-        return None
+                return ""
+
+        # PDF/TIFF/STEP be preview -> nieko (template nuspręs ką rodyti)
+        return ""
 
 
 class MetaloStorisEilute(models.Model):

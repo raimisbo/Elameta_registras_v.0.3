@@ -6,21 +6,21 @@ from django.db import transaction
 from django.db.models import Count, IntegerField, Value, Q, Min, Max
 from django.http import JsonResponse, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render, redirect
-from django.views.decorators.http import require_POST
 from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.views.decorators.http import require_POST
 
-from .services.import_csv import import_pozicijos_from_csv
-from .models import Pozicija, PozicijosBrezinys, KainosEilute, MaskavimoEilute, MetaloStorisEilute
-from .forms import PozicijaForm, PozicijosBrezinysForm, MaskavimoFormSet
+from .forms import PozicijaForm, MaskavimoFormSet
 from .forms_kainos import KainaFormSet
+from .models import Pozicija, PozicijosBrezinys, KainosEilute, MaskavimoEilute, MetaloStorisEilute
 from .schemas.columns import COLUMNS
-from .services.previews import regenerate_missing_preview
-from .services.sync import sync_pozicija_kaina_eur
+from .services.import_csv import import_pozicijos_from_csv
 from .services.listing import (
     visible_cols_from_request,
     apply_filters,
     apply_sorting,
 )
+from .services.previews import regenerate_missing_preview
+from .services.sync import sync_pozicija_kaina_eur
 
 FORM_SUGGEST_FIELDS = [
     "klientas",
@@ -134,7 +134,7 @@ def pozicija_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
     mask_ktl = obj.maskavimo_eilutes.filter(paslauga="ktl").order_by("id")
     mask_milt = obj.maskavimo_eilutes.filter(paslauga="miltai").order_by("id")
-    breziniai = obj.breziniai.all().order_by("-uploaded") if hasattr(obj, "breziniai") else []
+    breziniai = obj.breziniai.all().order_by("-uploaded_at") if hasattr(obj, "breziniai") else []
     kainos_akt = obj.kainos_eilutes.filter(busena="aktuali").order_by("kiekis_nuo", "kiekis_iki", "id") if hasattr(obj, "kainos_eilutes") else []
 
     return render(
@@ -393,10 +393,15 @@ def pozicija_edit(request, pk):
 @require_POST
 def brezinys_upload(request, pk):
     poz = get_object_or_404(Pozicija, pk=pk)
+
     if request.FILES.get("failas"):
         f = request.FILES["failas"]
         title = request.POST.get("pavadinimas", "").strip()
-        br = PozicijosBrezinys.objects.create(pozicija=poz, failas=f, pavadinimas=title)
+        br = PozicijosBrezinys.objects.create(
+            pozicija=poz,
+            failas=f,
+            pavadinimas=title,
+        )
 
         if not br.is_step:
             res = regenerate_missing_preview(br)
@@ -406,6 +411,8 @@ def brezinys_upload(request, pk):
                 messages.info(request, f"Įkelta. Miniatiūros sugeneruoti nepavyko: {res.message}")
         else:
             messages.success(request, "Įkelta. STEP/STP miniatiūra nenaudojama (rodoma 3D ikona).")
+    else:
+        messages.error(request, "Nepasirinktas failas.")
 
     return redirect("pozicijos:detail", pk=poz.pk)
 

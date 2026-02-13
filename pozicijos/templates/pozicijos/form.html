@@ -61,14 +61,48 @@
   .field-errors{ margin-top:2px; font-size:0.8rem; color:#b91c1c; }
   .field-help{ font-size:0.78rem; color:#9ca3af; margin-top:2px; }
 
+    .form-errors{
+    margin:10px 0;
+    padding:10px;
+    border:1px solid #ef4444;
+    background:#fff5f5;
+    border-radius:8px;
+  }
+  .form-errors__title{
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  .form-errors__list{
+    margin:6px 0 0 18px;
+    color:#991b1b;
+  }
+  .form-errors__list li{ margin:2px 0; }
+
+  .field-control--error input[type="text"],
+  .field-control--error input[type="number"],
+  .field-control--error input[type="date"],
+  .field-control--error select,
+  .field-control--error textarea{
+    border-color:#dc2626 !important;
+    box-shadow:0 0 0 1px rgba(220,38,38,.15);
+    background:#fff7f7;
+  }
+
+  .subblock.has-errors{
+    border-color:#fca5a5;
+    background:#fff7f7;
+  }
+
+
   .inline-checkboxes{ display:flex; flex-wrap:wrap; gap:12px; margin:6px 0 4px; }
   .inline-checkboxes label{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap; font-size:0.9rem; cursor:pointer; }
 
   .subblock{ margin-top:8px; padding:8px 10px; border:1px dashed #d1d5db; border-radius:6px; background:#fff; }
 
+  /* Paslauga: KTL (siauresnis) + Miltai (platesnis) */
   .paslauga-subgrid{
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns: minmax(360px, 520px) 1fr;
     gap:12px;
     align-items:start;
   }
@@ -79,41 +113,16 @@
     .paslauga-subgrid{ grid-template-columns:1fr; }
   }
 
-  /* Kompaktiška KTL "Detalių išdėstymas rėme" eilutė */
-  .ktl-layout-row{
-    display:grid;
-    grid-template-columns: 220px 1fr;
-    gap:10px;
-    align-items:center;
-    margin:8px 0;
-  }
-  .ktl-layout-inline{
-    display:grid;
-    grid-template-columns: repeat(4, minmax(90px, 1fr));
-    gap:8px;
-  }
-  .ktl-mini{
-    min-width:0;
-  }
-  .ktl-mini .field-help{
-    margin:0 0 4px;
-    line-height:1.2;
-  }
-  .ktl-mini input{
-    width:100%;
-  }
-  .ktl-mini--sandauga input{
-    background:#f9fafb;
-    color:#6b7280;
+  /* KTL/Miltai viduje: siauresnė label kolona, kad blokas "susitrauktų" */
+  #ktl-subblock .field-row,
+  #miltai-subblock .field-row{
+    grid-template-columns: 160px 1fr;
   }
 
-  @media (max-width: 980px){
-    .ktl-layout-row{
-      grid-template-columns:1fr;
-    }
-    .ktl-layout-inline{
-      grid-template-columns: repeat(2, minmax(120px, 1fr));
-    }
+  /* KTL/Miltai textarea – kad nebūtų suspaustos iškart */
+  #ktl-subblock textarea,
+  #miltai-subblock textarea{
+    min-height: 74px;
   }
 
   textarea { resize: vertical; }
@@ -142,12 +151,41 @@
     </div>
 
     <form method="post" enctype="multipart/form-data">
-      {% if form.errors %}
-        <div class="form-errors" style="margin:10px 0; padding:10px; border:1px solid #ef4444; background:#fff5f5; border-radius:8px;">
-          <div style="font-weight:700; margin-bottom:6px;">Patikrinkite formos klaidas</div>
-          {% if form.non_field_errors %}<div>{{ form.non_field_errors }}</div>{% endif %}
+      {% if form.errors or form.non_field_errors or kainos_formset.non_form_errors or
+      maskavimo_ktl_formset.non_form_errors or maskavimo_miltai_formset.non_form_errors %}
+      <div class="form-errors" id="form-errors-summary">
+        <div class="form-errors__title">Patikrinkite formos klaidas</div>
+
+        {% if form.non_field_errors %}
+        <div>{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <ul class="form-errors__list">
+          {% if form.errors %}
+          <li>Pagrindinės formos laukai turi klaidų.</li>
+          {% endif %}
+          {% if kainos_formset.non_form_errors %}
+          <li>Kainų bloke yra klaidų.</li>
+          {% endif %}
+          {% if maskavimo_ktl_formset.non_form_errors %}
+          <li>KTL maskavimo bloke yra klaidų.</li>
+          {% endif %}
+          {% if maskavimo_miltai_formset.non_form_errors %}
+          <li>Miltų maskavimo bloke yra klaidų.</li>
+          {% endif %}
+          {% if kainos_formset.errors %}
+          <li>Kainų eilutėse gali būti klaidų.</li>
+          {% endif %}
+          {% if maskavimo_ktl_formset.errors %}
+          <li>KTL maskavimo eilutėse gali būti klaidų.</li>
+          {% endif %}
+          {% if maskavimo_miltai_formset.errors %}
+          <li>Miltų maskavimo eilutėse gali būti klaidų.</li>
+          {% endif %}
+        </ul>
         </div>
       {% endif %}
+
 
       {% csrf_token %}
 
@@ -405,32 +443,46 @@
               </div>
             </div>
 
-            <!-- Kompaktiška eilutė -->
-            <div class="ktl-layout-row">
+            <div class="field-row">
               <div class="field-label">Detalių išdėstymas rėme</div>
-              <div class="ktl-layout-inline">
-                <div class="ktl-mini">
-                  <div class="field-help">I (ilgis)</div>
-                  {{ form.ktl_ilgis_mm }}
-                  {% if form.ktl_ilgis_mm.errors %}<div class="field-errors">{{ form.ktl_ilgis_mm.errors|striptags }}</div>{% endif %}
+              <div class="field-control">
+                <!-- 1 eilė: I / A / G -->
+                <div style="display:grid; grid-template-columns:repeat(3, minmax(90px, 1fr)); gap:10px;">
+                  <div>
+                    <div class="field-help" style="margin-bottom:4px;">I (ilgis)</div>
+                    {{ form.ktl_ilgis_mm }}
+                    {% if form.ktl_ilgis_mm.errors %}
+                    <div class="field-errors">{{ form.ktl_ilgis_mm.errors|striptags }}</div>
+                    {% endif %}
+                  </div>
+                  <div>
+                    <div class="field-help" style="margin-bottom:4px;">A (aukštis)</div>
+                    {{ form.ktl_aukstis_mm }}
+                    {% if form.ktl_aukstis_mm.errors %}
+                    <div class="field-errors">{{ form.ktl_aukstis_mm.errors|striptags }}</div>
+                    {% endif %}
+                  </div>
+                  <div>
+                    <div class="field-help" style="margin-bottom:4px;">G (gylis)</div>
+                    {{ form.ktl_gylis_mm }}
+                    {% if form.ktl_gylis_mm.errors %}
+                    <div class="field-errors">{{ form.ktl_gylis_mm.errors|striptags }}</div>
+                    {% endif %}
+                  </div>
                 </div>
-                <div class="ktl-mini">
-                  <div class="field-help">A (aukštis)</div>
-                  {{ form.ktl_aukstis_mm }}
-                  {% if form.ktl_aukstis_mm.errors %}<div class="field-errors">{{ form.ktl_aukstis_mm.errors|striptags }}</div>{% endif %}
-                </div>
-                <div class="ktl-mini">
-                  <div class="field-help">G (gylis)</div>
-                  {{ form.ktl_gylis_mm }}
-                  {% if form.ktl_gylis_mm.errors %}<div class="field-errors">{{ form.ktl_gylis_mm.errors|striptags }}</div>{% endif %}
-                </div>
-                <div class="ktl-mini ktl-mini--sandauga">
-                  <div class="field-help">I×A×G</div>
-                  <input type="text" id="ktl-sandauga-preview" readonly
-                         value="{% if form.instance.ktl_matmenu_sandauga is not None %}{{ form.instance.ktl_matmenu_sandauga|floatformat:0 }}{% endif %}">
+
+                <!-- 2 eilė: sandauga -->
+                <div style="display:grid; grid-template-columns:minmax(120px, 180px); gap:10px; margin-top:8px;">
+                  <div>
+                    <div class="field-help" style="margin-bottom:4px;">I×A×G</div>
+                    <input type="text" id="ktl-sandauga-preview" readonly
+                           value="{% if form.instance.ktl_matmenu_sandauga %}{{ form.instance.ktl_matmenu_sandauga|floatformat:0 }}{% endif %}"
+                           style="background:#f9fafb; color:#6b7280;">
+                  </div>
                 </div>
               </div>
             </div>
+
 
             <div class="field-row">
               <div class="field-label">{{ form.ktl_kabinimas_aprasymas.label }}</div>
@@ -452,7 +504,7 @@
             <div style="margin:10px 0 6px; font-weight:700;">Maskavimas (KTL)</div>
             {{ maskavimo_ktl_formset.management_form }}
 
-            <div class="field-row" style="grid-template-columns:220px 1fr;">
+            <div class="field-row" style="grid-template-columns:160px 1fr;">
               <div class="field-label"></div>
               <div class="field-control">
                 <button type="button" class="btn btn-secondary maskavimas-add" data-mask-prefix="maskavimas_ktl">Pridėti</button>
@@ -633,7 +685,7 @@
             <div style="margin:10px 0 6px; font-weight:700;">Maskavimas (Miltai)</div>
             {{ maskavimo_miltai_formset.management_form }}
 
-            <div class="field-row" style="grid-template-columns:220px 1fr;">
+            <div class="field-row" style="grid-template-columns:160px 1fr;">
               <div class="field-label"></div>
               <div class="field-control">
                 <button type="button" class="btn btn-secondary maskavimas-add" data-mask-prefix="maskavimas_miltai">Pridėti</button>
@@ -869,5 +921,57 @@
     });
   });
   </script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // 1) Paryškinti field-control, jei viduje yra klaidos
+    document.querySelectorAll(".field-control").forEach(function (fc) {
+      if (fc.querySelector(".field-errors, .errorlist")) {
+        fc.classList.add("field-control--error");
+      }
+    });
+
+    // 2) Jei klaidos paslėptuose subblokuose – atverti juos
+    function hasErrors(el) {
+      return !!(el && el.querySelector(".field-errors, .errorlist"));
+    }
+    function showIfHidden(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (hasErrors(el)) {
+        el.style.display = "";
+        el.classList.add("has-errors");
+      }
+    }
+
+    showIfHidden("ktl-subblock");
+    showIfHidden("miltai-subblock");
+    showIfHidden("maskavimas_ktl-items");
+    showIfHidden("maskavimas_miltai-items");
+
+    // 3) Jeigu checkbox valdo bloką, o bloke klaidos – checkbox turi būti įjungtas
+    function ensureChecked(checkboxId, blockId) {
+      var cb = document.getElementById(checkboxId);
+      var block = document.getElementById(blockId);
+      if (!cb || !block) return;
+      if (hasErrors(block)) {
+        cb.checked = true;
+        block.style.display = "";
+        block.classList.add("has-errors");
+        cb.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+
+    ensureChecked("id_paslauga_ktl", "ktl-subblock");
+    ensureChecked("id_paslauga_miltai", "miltai-subblock");
+
+    // 4) Prasukti iki pirmos klaidos
+    var firstErr = document.querySelector(".field-errors, .errorlist, #form-errors-summary");
+    if (firstErr) {
+      firstErr.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  });
+</script>
+
   <!-- END_METALO_STORIS_JS -->
 {% endblock %}
