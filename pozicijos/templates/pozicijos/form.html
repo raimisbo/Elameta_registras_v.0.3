@@ -151,8 +151,8 @@
     </div>
 
     <form method="post" enctype="multipart/form-data">
-      {% if form.errors or form.non_field_errors or kainos_formset.non_form_errors or
-      maskavimo_ktl_formset.non_form_errors or maskavimo_miltai_formset.non_form_errors %}
+        {% if form.errors or form.non_field_errors or kainos_formset.non_form_errors or
+        maskavimo_ktl_formset.non_form_errors or maskavimo_miltai_formset.non_form_errors %}
       <div class="form-errors" id="form-errors-summary">
         <div class="form-errors__title">Patikrinkite formos klaidas</div>
 
@@ -183,9 +183,8 @@
           <li>Miltų maskavimo eilutėse gali būti klaidų.</li>
           {% endif %}
         </ul>
-        </div>
+      </div>
       {% endif %}
-
 
       {% csrf_token %}
 
@@ -446,7 +445,6 @@
             <div class="field-row">
               <div class="field-label">Detalių išdėstymas rėme</div>
               <div class="field-control">
-                <!-- 1 eilė: I / A / G -->
                 <div style="display:grid; grid-template-columns:repeat(3, minmax(90px, 1fr)); gap:10px;">
                   <div>
                     <div class="field-help" style="margin-bottom:4px;">I (ilgis)</div>
@@ -471,7 +469,6 @@
                   </div>
                 </div>
 
-                <!-- 2 eilė: sandauga -->
                 <div style="display:grid; grid-template-columns:minmax(120px, 180px); gap:10px; margin-top:8px;">
                   <div>
                     <div class="field-help" style="margin-bottom:4px;">I×A×G</div>
@@ -482,7 +479,6 @@
                 </div>
               </div>
             </div>
-
 
             <div class="field-row">
               <div class="field-label">{{ form.ktl_kabinimas_aprasymas.label }}</div>

@@ -1,9 +1,12 @@
 # pozicijos/views.py
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Count, IntegerField, Value, Q, Min, Max
+from django.db.models import Count, IntegerField, Value, Q, Min, Max, CharField
+from django.db.models.functions import Cast, Coalesce
 from django.http import JsonResponse, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -36,19 +39,22 @@ FORM_SUGGEST_FIELDS = [
     "instrukcija",
 ]
 
+
 def _get_form_suggestions() -> dict[str, list[str]]:
     suggestions: dict[str, list[str]] = {}
-    qs = Pozicija.objects.all().prefetch_related('metalo_storio_eilutes')
+    qs = Pozicija.objects.all().prefetch_related("metalo_storio_eilutes")
     for field in FORM_SUGGEST_FIELDS:
         values = qs.order_by(field).values_list(field, flat=True).distinct()
         suggestions[field] = [v for v in values if v]
     return suggestions
+
 
 def _safe_int(value, default: int) -> int:
     try:
         return int(value)
     except Exception:
         return default
+
 
 def _base_list_qs():
     """
@@ -63,7 +69,58 @@ def _base_list_qs():
             kaina_min=Min("kainos_eilutes__kaina", filter=Q(kainos_eilutes__busena="aktuali")),
             kaina_max=Max("kainos_eilutes__kaina", filter=Q(kainos_eilutes__busena="aktuali")),
         )
+        .annotate(
+            # fallback, jei nėra susietų eilučių
+            metalo_storiai_display=Coalesce(
+                Cast("metalo_storis", CharField()),
+                Value("", output_field=CharField()),
+            ),
+        )
     )
+
+
+def _fmt_mm(v) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, Decimal):
+        s = format(v, "f")
+    else:
+        s = str(v)
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    return s
+
+
+def _attach_metalo_storiai_display(items):
+    """
+    Užpildo obj.metalo_storiai_display VISOMIS storio reikšmėmis:
+    pvz. '1, 1.5, 2'
+    """
+    items = list(items)
+    if not items:
+        return items
+
+    pks = [o.pk for o in items]
+    rows = (
+        MetaloStorisEilute.objects.filter(pozicija_id__in=pks, storis_mm__isnull=False)
+        .order_by("id")
+        .values_list("pozicija_id", "storis_mm")
+    )
+
+    by_pk: dict[int, list[str]] = {}
+    for poz_id, storis in rows:
+        by_pk.setdefault(poz_id, []).append(_fmt_mm(storis))
+
+    for o in items:
+        vals = by_pk.get(o.pk, [])
+        if vals:
+            o.metalo_storiai_display = ", ".join(vals)
+        else:
+            legacy = _fmt_mm(getattr(o, "metalo_storis", None))
+            o.metalo_storiai_display = legacy if legacy else ""
+
+    return items
+
 
 def pozicijos_list(request):
     visible_cols = visible_cols_from_request(request)
@@ -76,11 +133,12 @@ def pozicijos_list(request):
     qs = _base_list_qs()
     qs = apply_filters(qs, request)
     qs = apply_sorting(qs, request)[:page_size]
+    items = _attach_metalo_storiai_display(qs)
 
     context = {
         "columns_schema": COLUMNS,
         "visible_cols": visible_cols,
-        "items": qs,
+        "items": items,
         "q": q,
         "page_size": page_size,
         "f": request.GET,
@@ -88,6 +146,7 @@ def pozicijos_list(request):
         "current_dir": current_dir,
     }
     return render(request, "pozicijos/list.html", context)
+
 
 def pozicijos_tbody(request):
     visible_cols = visible_cols_from_request(request)
@@ -99,6 +158,7 @@ def pozicijos_tbody(request):
     qs = _base_list_qs()
     qs = apply_filters(qs, request)
     qs = apply_sorting(qs, request)[:page_size]
+    items = _attach_metalo_storiai_display(qs)
 
     return render(
         request,
@@ -106,11 +166,12 @@ def pozicijos_tbody(request):
         {
             "columns_schema": COLUMNS,
             "visible_cols": visible_cols,
-            "items": qs,
+            "items": items,
             "current_sort": current_sort,
             "current_dir": current_dir,
         },
     )
+
 
 def pozicijos_stats(request):
     qs = Pozicija.objects.all()
@@ -129,13 +190,18 @@ def pozicijos_stats(request):
 
     return JsonResponse({"labels": labels, "values": values, "total": total})
 
+
 def pozicija_detail(request: HttpRequest, pk: int) -> HttpResponse:
     obj = get_object_or_404(Pozicija, pk=pk)
 
     mask_ktl = obj.maskavimo_eilutes.filter(paslauga="ktl").order_by("id")
     mask_milt = obj.maskavimo_eilutes.filter(paslauga="miltai").order_by("id")
     breziniai = obj.breziniai.all().order_by("-uploaded_at") if hasattr(obj, "breziniai") else []
-    kainos_akt = obj.kainos_eilutes.filter(busena="aktuali").order_by("kiekis_nuo", "kiekis_iki", "id") if hasattr(obj, "kainos_eilutes") else []
+    kainos_akt = (
+        obj.kainos_eilutes.filter(busena="aktuali").order_by("kiekis_nuo", "kiekis_iki", "id")
+        if hasattr(obj, "kainos_eilutes")
+        else []
+    )
 
     return render(
         request,
@@ -151,8 +217,10 @@ def pozicija_detail(request: HttpRequest, pk: int) -> HttpResponse:
         },
     )
 
+
 def _sync_kaina_eur_from_lines(poz: Pozicija) -> None:
     sync_pozicija_kaina_eur(poz)
+
 
 def _sync_maskavimo_tipas_from_lines(poz: Pozicija) -> None:
     qs = MaskavimoEilute.objects.filter(pozicija=poz)
@@ -172,6 +240,7 @@ def _sync_maskavimo_tipas_from_lines(poz: Pozicija) -> None:
     if update_fields:
         update_fields.append("updated")
         poz.save(update_fields=update_fields)
+
 
 def _save_mask_formset(mask_formset, pozicija: Pozicija, paslauga: str) -> None:
     instances = mask_formset.save(commit=False)
@@ -195,6 +264,7 @@ def _save_mask_formset(mask_formset, pozicija: Pozicija, paslauga: str) -> None:
         if f.instance.pk:
             f.instance.delete()
 
+
 def _save_metalo_storis_formset(ms_formset, pozicija: Pozicija) -> None:
     instances = ms_formset.save(commit=False)
 
@@ -211,10 +281,7 @@ def _save_metalo_storis_formset(ms_formset, pozicija: Pozicija) -> None:
             f.instance.delete()
 
     first = (
-        MetaloStorisEilute.objects
-        .filter(pozicija=pozicija, storis_mm__isnull=False)
-        .order_by("id")
-        .first()
+        MetaloStorisEilute.objects.filter(pozicija=pozicija, storis_mm__isnull=False).order_by("id").first()
     )
     pozicija.metalo_storis = first.storis_mm if first else None
     pozicija.save(update_fields=["metalo_storis", "updated"])
@@ -247,9 +314,7 @@ def _save_metalo_storis_values(pozicija: Pozicija, post_data) -> None:
     # pilnas replace
     MetaloStorisEilute.objects.filter(pozicija=pozicija).delete()
     if parsed:
-        MetaloStorisEilute.objects.bulk_create(
-            [MetaloStorisEilute(pozicija=pozicija, storis_mm=d) for d in parsed]
-        )
+        MetaloStorisEilute.objects.bulk_create([MetaloStorisEilute(pozicija=pozicija, storis_mm=d) for d in parsed])
 
     # legacy fallback
     first = parsed[0] if parsed else None
@@ -276,12 +341,7 @@ def pozicija_create(request):
             queryset=MaskavimoEilute.objects.none(),
         )
 
-        if (
-            form.is_valid()
-            and formset.is_valid()
-            and mask_ktl_formset.is_valid()
-            and mask_miltai_formset.is_valid()
-        ):
+        if form.is_valid() and formset.is_valid() and mask_ktl_formset.is_valid() and mask_miltai_formset.is_valid():
             with transaction.atomic():
                 pozicija = form.save()
 
@@ -318,9 +378,9 @@ def pozicija_create(request):
         "kainos_formset": formset,
         "maskavimo_ktl_formset": mask_ktl_formset,
         "maskavimo_miltai_formset": mask_miltai_formset,
-
     }
     return render(request, "pozicijos/form.html", context)
+
 
 def pozicija_edit(request, pk):
     pozicija = get_object_or_404(Pozicija, pk=pk)
@@ -345,12 +405,7 @@ def pozicija_edit(request, pk):
         mask_ktl_formset = MaskavimoFormSet(request.POST, prefix="maskavimas_ktl", queryset=m_ktl_qs)
         mask_miltai_formset = MaskavimoFormSet(request.POST, prefix="maskavimas_miltai", queryset=m_milt_qs)
 
-        if (
-            form.is_valid()
-            and formset.is_valid()
-            and mask_ktl_formset.is_valid()
-            and mask_miltai_formset.is_valid()
-        ):
+        if form.is_valid() and formset.is_valid() and mask_ktl_formset.is_valid() and mask_miltai_formset.is_valid():
             with transaction.atomic():
                 form.save()
 
@@ -386,9 +441,9 @@ def pozicija_edit(request, pk):
         "kainos_formset": formset,
         "maskavimo_ktl_formset": mask_ktl_formset,
         "maskavimo_miltai_formset": mask_miltai_formset,
-
     }
     return render(request, "pozicijos/form.html", context)
+
 
 @require_POST
 def brezinys_upload(request, pk):
@@ -416,6 +471,7 @@ def brezinys_upload(request, pk):
 
     return redirect("pozicijos:detail", pk=poz.pk)
 
+
 @require_POST
 def brezinys_delete(request, pk, bid):
     poz = get_object_or_404(Pozicija, pk=pk)
@@ -423,11 +479,13 @@ def brezinys_delete(request, pk, bid):
     br.delete()
     return redirect("pozicijos:detail", pk=pk)
 
+
 @xframe_options_sameorigin
 def brezinys_3d(request, pk, bid):
     poz = get_object_or_404(Pozicija, pk=pk)
     br = get_object_or_404(PozicijosBrezinys, pk=bid, pozicija=poz)
     return render(request, "pozicijos/brezinys_3d.html", {"pozicija": poz, "brezinys": br})
+
 
 def pozicijos_import_csv(request):
     result = None
