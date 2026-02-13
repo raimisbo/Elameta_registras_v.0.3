@@ -11,16 +11,15 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
-
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph, Table, TableStyle
-from reportlab.lib.styles import ParagraphStyle
 
 from .models import Pozicija
 
@@ -28,6 +27,12 @@ from .models import Pozicija
 def _get_lang(request) -> str:
     lang = (request.GET.get("lang") or "lt").lower()
     return "en" if lang.startswith("en") else "lt"
+
+
+def _as_bool(v: str | None, default: bool = False) -> bool:
+    if v is None:
+        return default
+    return str(v).strip().lower() in {"1", "true", "yes", "on"}
 
 
 LANG_LABELS = {
@@ -65,8 +70,6 @@ LANG_LABELS = {
     },
 }
 
-# Atstatyta: EN/LT label'ų žemėlapis (kaip buvo prieš refactor'ą).
-# Jei kurių laukų čia nėra – EN režime rodys "Field: <field_name>" (ne LT).
 FIELD_LABELS = {
     "lt": {
         "klientas": "Klientas",
@@ -90,6 +93,7 @@ FIELD_LABELS = {
         "paslauga_ktl": "Papildoma paslauga: KTL",
         "paslauga_miltai": "Papildoma paslauga: Miltai",
         "paslauga_paruosimas": "Papildoma paslauga: Paruošimas",
+        "ktl_kabinimo_budas": "Kabinimo būdas",
         "pastabos": "Pastabos",
     },
     "en": {
@@ -114,32 +118,41 @@ FIELD_LABELS = {
         "paslauga_ktl": "Extra service: KTL",
         "paslauga_miltai": "Extra service: Powder coating",
         "paslauga_paruosimas": "Extra service: Preparation",
+        "ktl_kabinimo_budas": "Hanging method",
         "pastabos": "Notes",
     },
 }
 
 
 def proposal_prepare(request, pk: int):
-    """Suderinamumas: nukreipiam į PDF."""
+    _ = get_object_or_404(Pozicija, pk=pk)
+
     lang = _get_lang(request)
     notes = (request.GET.get("notes", "") or "").strip()
 
     params: list[tuple[str, str]] = [("lang", lang)]
+
+    if _as_bool(request.GET.get("show_prices"), default=True):
+        params.append(("show_prices", "1"))
+    if _as_bool(request.GET.get("show_drawings"), default=True):
+        params.append(("show_drawings", "1"))
+
     if notes:
         params.append(("notes", notes))
 
+    for kid in request.GET.getlist("kaina_id"):
+        params.append(("kaina_id", kid))
+
+    if _as_bool(request.GET.get("preview"), default=False):
+        params.append(("preview", "1"))
+
     url = reverse("pozicijos:pdf", args=[pk])
-    url += "?" + urlencode(params)
+    if params:
+        url += "?" + urlencode(params, doseq=True)
     return redirect(url)
 
 
 def _register_fonts() -> tuple[str, str]:
-    """
-    Naudojam jūsų media/fonts:
-      - NotoSans-Regular.ttf
-      - NotoSans-Bold.ttf
-    (DejaVuSans kaip fallback)
-    """
     fonts_dir = os.path.join(settings.MEDIA_ROOT, "fonts")
 
     candidates_regular = [
@@ -168,7 +181,6 @@ def _register_fonts() -> tuple[str, str]:
     if bold_path:
         bold = register_font("APP-Bold", bold_path) or bold
 
-    # kritinis fallback: jei bold nerasta, bet regular yra TTF – naudok regular (kad nebūtų ■)
     if bold == "Helvetica-Bold" and regular != "Helvetica":
         bold = regular
 
@@ -201,13 +213,22 @@ def _make_paragraph(text: str, style: ParagraphStyle) -> Paragraph:
     return Paragraph(safe, style)
 
 
+def _humanize_case(text: str) -> str:
+    """
+    Jei visas tekstas mažosiomis -> pakeliam pirmą raidę.
+    Jei jau turi didžiąsias/formatavimą -> neliečiam.
+    """
+    if not text:
+        return text
+    s = str(text).strip()
+    if not s:
+        return s
+    if s == s.lower():
+        return s[:1].upper() + s[1:]
+    return s
+
+
 def _build_field_rows(pozicija: Pozicija, lang: str) -> list[tuple[str, str]]:
-    """
-    Atstatyta logika:
-      - label = FIELD_LABELS[lang][field.name] (jei yra)
-      - EN režime jokio fallback į LT verbose_name (kad nebūtų pusiau LT)
-    Pastabas praleidžiam – įdėsim ranka po "Price (EUR) / Kaina (EUR)".
-    """
     rows: list[tuple[str, str]] = []
     skip = {"id", "created", "updated", "atlikimo_terminas_data", "pastabos"}
 
@@ -223,18 +244,13 @@ def _build_field_rows(pozicija: Pozicija, lang: str) -> list[tuple[str, str]]:
 
         label = labels_map.get(field.name)
         if not label:
-            if lang == "en":
-                # griežtas EN: nerodom LT verbose_name
-                label = f"Field: {field.name}"
-            else:
-                label = str(field.verbose_name or field.name).capitalize()
+            label = f"Field: {field.name}" if lang == "en" else str(field.verbose_name or field.name).capitalize()
 
-        # Bool -> Yra/Nėra arba Yes/No
         if isinstance(value, bool):
             rows.append((label, ("Yes" if value else "No") if lang == "en" else ("Yra" if value else "Nėra")))
             continue
 
-        # choices display (čia gali būti LT, jei jūsų choices tekstai LT – tai atskiras žingsnis)
+        # CHOICE laukams imam display reikšmę (pvz. Girliandos)
         get_disp = getattr(pozicija, f"get_{field.name}_display", None)
         if callable(get_disp) and getattr(field, "choices", None):
             try:
@@ -251,15 +267,94 @@ def _build_field_rows(pozicija: Pozicija, lang: str) -> list[tuple[str, str]]:
             else:
                 value_str = str(value)
 
+        value_str = _humanize_case(value_str)
         rows.append((label, value_str))
 
     return rows
 
 
 def _get_kainos_for_pdf(pozicija: Pozicija):
-    """Aktualios kainos (pas jus laukas yra busena)."""
     qs = pozicija.kainos_eilutes.filter(busena="aktuali")
     return qs.order_by("matas", "kiekis_nuo", "kiekis_iki", "galioja_nuo", "galioja_iki", "-created")
+
+
+def _resolve_preview_path(b) -> str | None:
+    """
+    Universalesnis preview paėmimas.
+    """
+
+    def _exists(p: str | None) -> str | None:
+        if p and isinstance(p, str) and os.path.exists(p):
+            return p
+        return None
+
+    def _from_filefield(obj, attr: str) -> str | None:
+        try:
+            f = getattr(obj, attr, None)
+            if not f:
+                return None
+
+            # absoliutus path
+            p = getattr(f, "path", None)
+            ok = _exists(p)
+            if ok:
+                return ok
+
+            # MEDIA relative name -> absoliutus
+            name = getattr(f, "name", None)
+            if name:
+                p2 = os.path.join(settings.MEDIA_ROOT, str(name))
+                ok = _exists(p2)
+                if ok:
+                    return ok
+        except Exception:
+            return None
+        return None
+
+    if b is None:
+        return None
+
+    # 1) standartinis preview field
+    for attr in ("preview", "preview_image", "thumb", "thumbnail", "image_preview"):
+        ok = _from_filefield(b, attr)
+        if ok:
+            return ok
+
+    # 2) preview_abspath (property/method)
+    try:
+        pa = getattr(b, "preview_abspath", None)
+        if callable(pa):
+            pa = pa()
+        ok = _exists(pa)
+        if ok:
+            return ok
+    except Exception:
+        pass
+
+    # 3) kiti dažni failų laukai
+    for attr in ("image", "file", "uploaded", "upload", "source", "original", "failas"):
+        ok = _from_filefield(b, attr)
+        if ok:
+            return ok
+
+    # 4) jei yra method/property grąžinanti preview relative path
+    for attr in ("preview_relpath", "preview_path", "get_preview_path", "best_image_path_for_pdf"):
+        try:
+            v = getattr(b, attr, None)
+            if callable(v):
+                v = v()
+            if isinstance(v, str) and v:
+                # absoliutus arba relative
+                ok = _exists(v)
+                if ok:
+                    return ok
+                ok = _exists(os.path.join(settings.MEDIA_ROOT, v))
+                if ok:
+                    return ok
+        except Exception:
+            continue
+
+    return None
 
 
 def proposal_pdf(request, pk: int):
@@ -271,7 +366,6 @@ def proposal_pdf(request, pk: int):
     kainos = list(_get_kainos_for_pdf(pozicija))
     field_rows = _build_field_rows(pozicija, lang)
 
-    # Kaina/Price -> rėžis
     kainu_rezis = _price_range_from_kainos(kainos)
     if kainu_rezis != "—":
         new_rows = []
@@ -284,7 +378,6 @@ def proposal_pdf(request, pk: int):
                 new_rows.append((lbl, val))
         field_rows = new_rows
 
-    # Pastabos: vienoje vietoje po Kaina/Price
     notes_extra = (request.GET.get("notes", "") or "").strip()
     poz_pastabos = (pozicija.pastabos or "").strip()
     combined_notes = "\n\n".join([t for t in [poz_pastabos, notes_extra] if t]).strip()
@@ -301,7 +394,6 @@ def proposal_pdf(request, pk: int):
 
     brez = list(pozicija.breziniai.all())
 
-    # PDF
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
@@ -324,12 +416,10 @@ def proposal_pdf(request, pk: int):
         c.showPage()
         return height - 30 * mm
 
-    # Top bar
     top_bar_h = 18 * mm
     c.setFillColor(colors.HexColor("#f3f4f6"))
     c.rect(0, height - top_bar_h, width, top_bar_h, stroke=0, fill=1)
 
-    # Logo
     logo_path = getattr(settings, "OFFER_LOGO_PATH", None) or os.path.join(settings.MEDIA_ROOT, "logo.png")
     if logo_path and os.path.exists(logo_path):
         try:
@@ -346,7 +436,6 @@ def proposal_pdf(request, pk: int):
         except Exception:
             pass
 
-    # Company block
     company_name = getattr(settings, "OFFER_COMPANY_NAME", "") or "UAB Elameta"
     line1 = getattr(settings, "OFFER_COMPANY_LINE1", "") or ""
     line2 = getattr(settings, "OFFER_COMPANY_LINE2", "") or ""
@@ -364,7 +453,6 @@ def proposal_pdf(request, pk: int):
     if line2:
         c.drawRightString(right_x, y_company, line2)
 
-    # Header + hero preview
     header_top = height - top_bar_h - 6 * mm
     header_h = 46 * mm
     header_bottom = header_top - header_h
@@ -375,15 +463,7 @@ def proposal_pdf(request, pk: int):
     preview_y = header_bottom
 
     hero = brez[0] if brez else None
-    hero_img_path = None
-    if hero is not None:
-        try:
-            if getattr(hero, "preview", None) and getattr(hero.preview, "path", None):
-                pth = hero.preview.path
-                if pth and os.path.exists(pth):
-                    hero_img_path = pth
-        except Exception:
-            hero_img_path = None
+    hero_img_path = _resolve_preview_path(hero)
 
     c.setStrokeColor(colors.HexColor("#e5e7eb"))
     c.setFillColor(colors.HexColor("#f9fafb"))
@@ -435,7 +515,6 @@ def proposal_pdf(request, pk: int):
         c.setFont(font_regular, 9)
         c.drawString(x_left, header_top - 22 * mm, sub_line)
 
-    # Divider
     y = header_bottom - 8
     c.setStrokeColor(colors.HexColor("#e5e7eb"))
     c.setLineWidth(0.6)
@@ -455,37 +534,24 @@ def proposal_pdf(request, pk: int):
         c.line(margin_left, y, width - margin_right, y)
         y -= 8
 
-    
-
     def draw_table_flow(tbl: Table, table_width: float, extra_gap: float = 14) -> None:
-        """Draw a ReportLab Table, splitting across pages if needed.
-
-        This avoids the situation where the first page contains only the header ('kepurė')
-        and the whole table is moved to the next page.
-        """
         nonlocal y
-
         parts = [tbl]
         while parts:
             t = parts.pop(0)
-
-            # Available height in the current page (from current y down to bottom margin)
             avail_h = y - bottom_margin
             if avail_h <= 0:
                 y = new_page_y()
                 continue
 
-            tw, th = t.wrap(table_width, 0)
-
+            _tw, th = t.wrap(table_width, 0)
             if th <= avail_h:
                 t.drawOn(c, margin_left, y - th)
                 y = y - th - extra_gap
                 continue
 
-            # Try to split the table to fill the remaining space on this page
             split_parts = t.split(table_width, avail_h)
             if not split_parts:
-                # Not splittable -> move it to next page as-is
                 y = new_page_y()
                 parts.insert(0, t)
                 continue
@@ -493,14 +559,14 @@ def proposal_pdf(request, pk: int):
             first = split_parts[0]
             rest = split_parts[1:]
 
-            fw, fh = first.wrap(table_width, 0)
+            _fw, fh = first.wrap(table_width, 0)
             first.drawOn(c, margin_left, y - fh)
             y = y - fh - extra_gap
 
             if rest:
                 y = new_page_y()
                 parts = rest + parts
-# Main info (pastabos po Price)
+
     draw_section_title(labels["section_main"])
 
     rows_for_table: list[tuple[str, object]] = [(lbl, val) for (lbl, val) in field_rows]
@@ -536,7 +602,6 @@ def proposal_pdf(request, pk: int):
         c.drawString(margin_left, y, labels["no_data"])
         y -= 12
 
-    # Prices
     draw_section_title(labels["section_prices"])
 
     if kainos:
@@ -579,7 +644,6 @@ def proposal_pdf(request, pk: int):
         c.drawString(margin_left, y, labels["no_prices"])
         y -= 12
 
-    # Drawings (tik jei yra papildomų, nes hero jau viršuje)
     if len(brez) == 0:
         draw_section_title(labels["section_drawings"])
         c.setFont(font_regular, 9)
@@ -606,14 +670,7 @@ def proposal_pdf(request, pk: int):
             c.setLineWidth(0.6)
             c.rect(x, top_y - thumb_h, thumb_w, thumb_h, stroke=1, fill=0)
 
-            img_path = None
-            try:
-                if getattr(b, "preview", None) and getattr(b.preview, "path", None):
-                    pth = b.preview.path
-                    if pth and os.path.exists(pth):
-                        img_path = pth
-            except Exception:
-                img_path = None
+            img_path = _resolve_preview_path(b)
 
             if img_path:
                 try:
@@ -639,7 +696,6 @@ def proposal_pdf(request, pk: int):
 
         y = top_y - needed_h - 6
 
-    # Footer
     c.setFont(font_regular, 8)
     c.setFillColor(colors.HexColor("#6b7280"))
     c.drawRightString(width - margin_right, 15 * mm, datetime.now().strftime("%Y-%m-%d %H:%M"))
@@ -649,5 +705,10 @@ def proposal_pdf(request, pk: int):
     buffer.close()
 
     resp = HttpResponse(pdf, content_type="application/pdf")
-    resp["Content-Disposition"] = f'inline; filename="offer_{poz_kodas}.pdf"' if lang == "en" else f'inline; filename="pasiulymas_{poz_kodas}.pdf"'
+    poz_kodas = pozicija.poz_kodas or pozicija.pk
+    resp["Content-Disposition"] = (
+        f'inline; filename="offer_{poz_kodas}.pdf"'
+        if lang == "en"
+        else f'inline; filename="pasiulymas_{poz_kodas}.pdf"'
+    )
     return resp
