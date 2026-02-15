@@ -4,7 +4,6 @@ import io
 import os
 import tempfile
 from datetime import datetime
-from decimal import Decimal
 from urllib.parse import urlencode, urlparse
 from xml.sax.saxutils import escape as xml_escape
 
@@ -13,6 +12,7 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -39,13 +39,6 @@ def _as_bool(v: str | None, default: bool = False) -> bool:
     if v is None:
         return default
     return str(v).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _fmt_decimal(d: Decimal) -> str:
-    s = f"{d:f}"
-    if "." in s:
-        s = s.rstrip("0").rstrip(".")
-    return s
 
 
 def _fmt_mm(v) -> str:
@@ -143,8 +136,6 @@ FIELD_LABELS = {
         "paslauga_miltai": "Papildoma paslauga: Miltai",
         "paslauga_paruosimas": "Papildoma paslauga: Paruošimas",
         "paslaugu_pastabos": "Paslaugų pastabos",
-        "kaina": "Kaina (EUR)",
-        "kaina_eur": "Kaina (EUR)",
         "pastabos": "Pastabos",
     },
     "en": {
@@ -179,8 +170,6 @@ FIELD_LABELS = {
         "paslauga_miltai": "Extra service: Powder coating",
         "paslauga_paruosimas": "Extra service: Preparation",
         "paslaugu_pastabos": "Service notes",
-        "kaina": "Price (EUR)",
-        "kaina_eur": "Price (EUR)",
         "pastabos": "Notes",
     },
 }
@@ -208,7 +197,41 @@ def _translate_value_for_lang(value: str, lang: str) -> str:
     return VALUE_TRANSLATIONS_EN.get(v, v)
 
 
-# Laukai, kurių NETURI būti pasiūlyme
+# Tik rodomi pasiūlyme laukai (tvarka pagal sąrašą)
+OFFER_FIELD_ORDER = [
+    "klientas",
+    "projektas",
+    "poz_kodas",
+    "poz_pavad",
+    "metalas",
+    "metalo_storis",
+    "plotas",
+    "svoris",
+    "x_mm",
+    "y_mm",
+    "z_mm",
+    "matmenys_xyz",
+    "paruosimas",
+    "padengimas",
+    "padengimo_standartas",
+    "spalva",
+    "miltu_kodas",
+    "miltu_spalva",
+    "miltu_blizgumas",
+    "miltu_serija",
+    "pakavimas",
+    "pakavimo_tipas",
+    "atlikimo_terminas",
+    "testai_kokybe",
+    "papildomos_paslaugos",
+    "papildomos_paslaugos_aprasymas",
+    "paslauga_ktl",
+    "paslauga_miltai",
+    "paslauga_paruosimas",
+    "paslaugu_pastabos",
+]
+
+# Visai nerodomi pasiūlyme
 EXCLUDED_FIELD_NAMES = {
     "ktl_kabinimo_budas",
     "ktl_matmenu_sandauga",
@@ -249,29 +272,12 @@ def _metalo_storiai_display(pozicija: Pozicija) -> str:
     return ", ".join(out)
 
 
-def _price_range_from_kainos(kainos) -> str:
-    prices = [k.kaina for k in kainos if getattr(k, "kaina", None) is not None]
-    if not prices:
-        return "—"
-    mn = min(prices)
-    mx = max(prices)
-    return _fmt_decimal(mn) if mn == mx else f"{_fmt_decimal(mn)}–{_fmt_decimal(mx)}"
-
-
-def _is_price_label(lbl: str) -> bool:
-    ll = (lbl or "").lower()
-    return ("kaina" in ll and "eur" in ll) or ("price" in ll and "eur" in ll)
-
-
 def _build_field_rows(pozicija: Pozicija, lang: str) -> list[tuple[str, str]]:
     labels_map = FIELD_LABELS.get(lang, FIELD_LABELS["lt"])
     rows: list[tuple[str, str]] = []
 
-    skip_base = {"id", "created", "updated", "atlikimo_terminas_data", "pastabos"} | EXCLUDED_FIELD_NAMES
-
-    for field in pozicija._meta.fields:
-        name = field.name
-        if name in skip_base:
+    for name in OFFER_FIELD_ORDER:
+        if name in EXCLUDED_FIELD_NAMES:
             continue
 
         if name == "metalo_storis":
@@ -280,12 +286,24 @@ def _build_field_rows(pozicija: Pozicija, lang: str) -> list[tuple[str, str]]:
                 rows.append((labels_map.get("metalo_storis", "Metalo storis"), ms))
             continue
 
+        try:
+            field = pozicija._meta.get_field(name)
+        except Exception:
+            continue
+
         value = getattr(pozicija, name, None)
         if value in (None, ""):
             continue
 
-        label = labels_map.get(name) or (
-            f"Field: {name}" if lang == "en" else str(field.verbose_name or name).capitalize())
+        label = labels_map.get(name) or (f"Field: {name}" if lang == "en" else str(field.verbose_name or name).capitalize())
+
+        if isinstance(value, bool):
+            if lang == "en":
+                value_str = "Yes" if value else "No"
+            else:
+                value_str = "Yra" if value else "Nėra"
+            rows.append((label, value_str))
+            continue
 
         get_disp = getattr(pozicija, f"get_{name}_display", None)
         if callable(get_disp) and getattr(field, "choices", None):
@@ -294,7 +312,7 @@ def _build_field_rows(pozicija: Pozicija, lang: str) -> list[tuple[str, str]]:
             except Exception:
                 value_str = str(value)
         else:
-            if name in {"atlikimo_terminas", "atlikimo_terminas_darbo_dienos"}:
+            if name == "atlikimo_terminas":
                 try:
                     n = int(value)
                     if lang == "en":
@@ -334,19 +352,13 @@ def _url_to_media_path(url_value: str | None) -> str | None:
 
 
 def _resolve_preview_path(b) -> str | None:
-    """
-    Prioritetas:
-    1) preview thumbnail (preview/thumb/thumbnail...)
-    2) helperiai (preview_abspath, best_image_path_for_pdf)
-    3) original failas tik image tipams (jpg/png/tiff/...)
-    """
     if not b:
         return None
 
     def _ok(p: str | None) -> str | None:
         return p if p and os.path.exists(p) else None
 
-    # 1) preview laukai
+    # preview laukai
     for fname in ("preview", "thumbnail", "thumb", "miniatiura", "miniatura"):
         try:
             f = getattr(b, fname, None)
@@ -361,7 +373,7 @@ def _resolve_preview_path(b) -> str | None:
         except Exception:
             pass
 
-    # 2) helperiai
+    # helperiai (jei projekte yra)
     for helper in ("preview_abspath", "best_image_path_for_pdf", "get_preview_abspath"):
         try:
             fn = getattr(b, helper, None)
@@ -372,7 +384,7 @@ def _resolve_preview_path(b) -> str | None:
         except Exception:
             pass
 
-    # 3) originalas tik image failams
+    # fallback į originalą tik image failams
     image_exts = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"}
     for attr in ("failas", "file", "image", "uploaded", "upload", "source", "original"):
         try:
@@ -390,10 +402,6 @@ def _resolve_preview_path(b) -> str | None:
 
 
 def _prepare_image_for_pdf(img_path: str | None) -> tuple[str | None, str | None]:
-    """
-    Return: (usable_path, temp_to_cleanup)
-    TIFF -> temp PNG
-    """
     if not img_path or not os.path.exists(img_path):
         return None, None
 
@@ -453,9 +461,6 @@ def _register_fonts() -> tuple[str, str]:
 # ============================================================================
 
 def proposal_prepare(request, pk: int):
-    """
-    Tiesiog peradresuoja į /pdf endpoint (be tarpinio HTML workflow).
-    """
     qs = request.GET.copy()
     if "lang" not in qs:
         qs["lang"] = "lt"
@@ -477,25 +482,14 @@ def proposal_pdf(request, pk: int):
     show_drawings = _as_bool(request.GET.get("show_drawings"), default=True)
     notes = (request.GET.get("notes", "") or "").strip()
 
-    kainos_qs = pozicija.kainos_eilutes.filter(busena="aktuali").order_by("kiekis_nuo", "kiekis_iki", "-prioritetas",
-                                                                          "-created")
+    # KAINOS NELIEČIAMOS: rodomos visos aktualios (arba pasirinktos per kaina_id)
+    kainos_qs = pozicija.kainos_eilutes.filter(busena="aktuali").order_by("kiekis_nuo", "kiekis_iki", "-prioritetas", "-created")
     selected_ids = [x for x in request.GET.getlist("kaina_id") if str(x).isdigit()]
     if selected_ids:
         kainos_qs = kainos_qs.filter(id__in=selected_ids)
     kainos = list(kainos_qs)
 
     field_rows = _build_field_rows(pozicija, lang)
-    price_range = _price_range_from_kainos(kainos)
-    if price_range != "—":
-        patched = []
-        replaced = False
-        for lbl, val in field_rows:
-            if not replaced and _is_price_label(lbl):
-                patched.append((lbl, price_range))
-                replaced = True
-            else:
-                patched.append((lbl, val))
-        field_rows = patched
 
     poz_notes = (pozicija.pastabos or "").strip()
     combined_notes = "\n\n".join([x for x in [poz_notes, notes] if x])
@@ -534,9 +528,6 @@ def proposal_pdf(request, pk: int):
         y -= 6
 
     def draw_table_split(table_obj: Table, section_title: str, gap_after: float = 10):
-        """
-        Tikslus split per puslapius: nebemeta visos lentelės į kitą lapą, jei netelpa.
-        """
         nonlocal y
         avail_w = W - margin_left - margin_right
 
@@ -567,7 +558,7 @@ def proposal_pdf(request, pk: int):
             draw_section_title(section_title)
 
     # ------------------------------------------------------------------------
-    # Header with logo + hero thumbnail (page 1)
+    # Header + hero
     # ------------------------------------------------------------------------
     logo_candidates = [
         getattr(settings, "OFFER_LOGO_PATH", None),
@@ -578,8 +569,7 @@ def proposal_pdf(request, pk: int):
     logo_path = next((p for p in logo_candidates if p and os.path.exists(p)), None)
     if logo_path:
         try:
-            c.drawImage(logo_path, margin_left, H - 20 * mm, width=30 * mm, height=10 * mm, preserveAspectRatio=True,
-                        mask="auto")
+            c.drawImage(logo_path, margin_left, H - 20 * mm, width=30 * mm, height=10 * mm, preserveAspectRatio=True, mask="auto")
         except Exception:
             pass
 
@@ -602,7 +592,7 @@ def proposal_pdf(request, pk: int):
         c.setFillColor(colors.HexColor("#6b7280"))
         c.drawString(margin_left, H - 41 * mm, sub)
 
-    # Hero thumbnail pirmame puslapyje (dešinėje)
+    # Hero dešinėje: pirmas realiai atvaizduojamas brėžinys
     hero_box_w = 56 * mm
     hero_box_h = 36 * mm
     hero_x = W - margin_right - hero_box_w
@@ -613,27 +603,32 @@ def proposal_pdf(request, pk: int):
     c.rect(hero_x, hero_y, hero_box_w, hero_box_h, stroke=1, fill=0)
 
     hero_drawn = False
-    if brez:
-        hero_path = _resolve_preview_path(brez[0])
-        if hero_path:
-            draw_path, temp_path = _prepare_image_for_pdf(hero_path)
-            if temp_path:
-                temp_files_to_cleanup.append(temp_path)
-            if draw_path:
-                try:
-                    c.drawImage(
-                        ImageReader(draw_path),
-                        hero_x + 1,
-                        hero_y + 1,
-                        width=hero_box_w - 2,
-                        height=hero_box_h - 2,
-                        preserveAspectRatio=True,
-                        anchor="c",
-                        mask="auto",
-                    )
-                    hero_drawn = True
-                except Exception:
-                    hero_drawn = False
+    hero_path = None
+    for b in brez:
+        p = _resolve_preview_path(b)
+        if p:
+            hero_path = p
+            break
+
+    if hero_path:
+        draw_path, temp_path = _prepare_image_for_pdf(hero_path)
+        if temp_path:
+            temp_files_to_cleanup.append(temp_path)
+        if draw_path:
+            try:
+                c.drawImage(
+                    ImageReader(draw_path),
+                    hero_x + 1,
+                    hero_y + 1,
+                    width=hero_box_w - 2,
+                    height=hero_box_h - 2,
+                    preserveAspectRatio=True,
+                    anchor="c",
+                    mask="auto",
+                )
+                hero_drawn = True
+            except Exception:
+                hero_drawn = False
 
     if not hero_drawn:
         c.setFont(font_bold, 11)
@@ -660,7 +655,7 @@ def proposal_pdf(request, pk: int):
                 table_data.append([lbl, val])
 
         table_width = W - margin_left - margin_right
-        col1 = 70 * mm
+        col1 = 78 * mm  # daugiau vietos pavadinimams
         col2 = table_width - col1
 
         t = Table(table_data, colWidths=[col1, col2], repeatRows=0)
@@ -672,10 +667,10 @@ def proposal_pdf(request, pk: int):
                     ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e7eb")),
                     ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f9fafb")),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                    ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
                 ]
             )
         )
@@ -687,7 +682,7 @@ def proposal_pdf(request, pk: int):
         y -= 12
 
     # ------------------------------------------------------------------------
-    # Prices
+    # Prices (ALL active lines)
     # ------------------------------------------------------------------------
     if show_prices:
         draw_section_title(labels["section_prices"])
@@ -798,13 +793,13 @@ def proposal_pdf(request, pk: int):
                     c.setFillColor(colors.HexColor("#6b7280"))
                     c.drawCentredString(x + thumb_w / 2, top_y - thumb_h / 2, mark)
 
-                # laikinas diagnostinis pavadinimas (vėliau galėsi išmesti)
+                # Laikinai paliekam pavadinimą diagnostikai
                 name = (
-                        getattr(b, "pavadinimas", None)
-                        or getattr(b, "filename", None)
-                        or os.path.basename(getattr(getattr(b, "failas", None), "name", "") or "")
-                        or os.path.basename(getattr(getattr(b, "file", None), "name", "") or "")
-                        or "—"
+                    getattr(b, "pavadinimas", None)
+                    or getattr(b, "filename", None)
+                    or os.path.basename(getattr(getattr(b, "failas", None), "name", "") or "")
+                    or os.path.basename(getattr(getattr(b, "file", None), "name", "") or "")
+                    or "—"
                 )
                 name = str(name).strip()[:40]
                 c.setFont(font_regular, 8)
@@ -822,7 +817,6 @@ def proposal_pdf(request, pk: int):
     pdf_data = buf.getvalue()
     buf.close()
 
-    # cleanup temp tiff->png
     for p in temp_files_to_cleanup:
         try:
             if p and os.path.exists(p):
