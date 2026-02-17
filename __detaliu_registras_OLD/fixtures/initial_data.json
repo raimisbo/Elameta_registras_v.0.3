@@ -1,0 +1,52 @@
+[
+    {
+      "model": "detaliu_registras.danga",
+      "pk": 1,
+      "fields": {
+        "pavadinimas": "KTL"
+      }
+    },
+    {
+      "model": "detaliu_registras.danga",
+      "pk": 2,
+      "fields": {
+        "pavadinimas": "miltai"
+      }
+    },
+    {
+      "model": "detaliu_registras.danga",
+      "pk": 3,
+      "fields": {
+        "pavadinimas": "KTL+miltai"
+      }
+    },
+    {
+      "model": "detaliu_registras.danga",
+      "pk": 4,
+      "fields": {
+        "pavadinimas": "ZnPhos"
+      }
+    },
+    {
+      "model": "detaliu_registras.danga",
+      "pk": 5,
+      "fields": {
+        "pavadinimas": "Plovimas"
+      }
+    },
+    {
+      "model": "detaliu_registras.danga",
+      "pk": 6,
+      "fields": {
+        "pavadinimas": "Papildomos paslaugos"
+      }
+    },
+    {
+      "model": "detaliu_registras.danga",
+      "pk": 7,
+      "fields": {
+        "pavadinimas": "Etiketavimas"
+      }
+    }
+  ]
+  
