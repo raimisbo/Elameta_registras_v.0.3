@@ -1,0 +1,76 @@
+{% load static %}
+<!doctype html>
+<html lang="lt">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Registras{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    :root{ --app-header-offset: 0px; }
+
+    html, body{
+      margin:0;
+      padding:0;
+      overflow-x:hidden !important; /* kad kepurė nevažiuotų horizontaliai */
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans","Liberation Sans",sans-serif;
+      background:#f8fafc;
+      color:#0f172a;
+    }
+
+    body{
+      min-height:100vh;
+    }
+
+    /* globalus padding – tik šiek tiek „oro“ virš/apačioj */
+    main{
+      padding:18px 0;
+      overflow:visible !important; /* nelaužom sticky vaikams */
+    }
+
+    .container{
+      max-width:1200px;
+      margin:0 auto;
+      padding:0 16px;
+      overflow:visible !important; /* nelaužom sticky vaikams */
+    }
+
+    .flash{margin:8px 0;padding:10px 12px;border-radius:6px}
+    .flash-success{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}
+    .flash-error{background:#fee2e2;border:1px solid #fecaca;color:#7f1d1d}
+    .flash-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}
+
+    a.btn,button.btn{
+      display:inline-block;padding:8px 12px;border-radius:6px;
+      border:1px solid #2563eb;background:#2563eb;color:#fff;
+      text-decoration:none;cursor:pointer
+    }
+    a.btn-secondary,button.btn-secondary{background:#f3f4f6;color:#111827;border-color:#d1d5db}
+    a.btn:focus,button.btn:focus{outline:2px solid #60a5fa;outline-offset:2px}
+
+    .box{border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:12px 0;background:#fff}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  </style>
+
+  {# DĖMESIO: legacy style.css čia NEkraunam #}
+  {% block page_css %}{% endblock %}
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body class="{% block body_class %}{% endblock %}">
+  <main>
+    <div class="container">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash {% if message.tags %}flash-{{ message.tags }}{% endif %}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  {% block extra_scripts %}{% endblock %}
+  {% block page_js %}{% endblock %}
+</body>
+</html>
