@@ -151,42 +151,42 @@
     </div>
 
     <form method="post" enctype="multipart/form-data">
-        {% if form.errors or form.non_field_errors or kainos_formset.non_form_errors or
-        maskavimo_ktl_formset.non_form_errors or maskavimo_miltai_formset.non_form_errors %}
-      <div class="form-errors" id="form-errors-summary">
-        <div class="form-errors__title">Patikrinkite formos klaidas</div>
+      {% if form.errors or form.non_field_errors or kainos_formset.non_form_errors or maskavimo_ktl_formset.non_form_errors or maskavimo_miltai_formset.non_form_errors %}
+        <div class="form-errors" id="form-errors-summary">
+          <div class="form-errors__title">Patikrinkite formos klaidas</div>
 
-        {% if form.non_field_errors %}
-        <div>{{ form.non_field_errors }}</div>
-        {% endif %}
+          {% if form.non_field_errors %}
+            <div>{{ form.non_field_errors }}</div>
+          {% endif %}
 
-        <ul class="form-errors__list">
-          {% if form.errors %}
-          <li>Pagrindinės formos laukai turi klaidų.</li>
-          {% endif %}
-          {% if kainos_formset.non_form_errors %}
-          <li>Kainų bloke yra klaidų.</li>
-          {% endif %}
-          {% if maskavimo_ktl_formset.non_form_errors %}
-          <li>KTL maskavimo bloke yra klaidų.</li>
-          {% endif %}
-          {% if maskavimo_miltai_formset.non_form_errors %}
-          <li>Miltų maskavimo bloke yra klaidų.</li>
-          {% endif %}
-          {% if kainos_formset.errors %}
-          <li>Kainų eilutėse gali būti klaidų.</li>
-          {% endif %}
-          {% if maskavimo_ktl_formset.errors %}
-          <li>KTL maskavimo eilutėse gali būti klaidų.</li>
-          {% endif %}
-          {% if maskavimo_miltai_formset.errors %}
-          <li>Miltų maskavimo eilutėse gali būti klaidų.</li>
-          {% endif %}
-        </ul>
-      </div>
+          <ul class="form-errors__list">
+            {% if form.errors %}
+              <li>Pagrindinės formos laukai turi klaidų.</li>
+            {% endif %}
+            {% if kainos_formset.non_form_errors %}
+              <li>Kainų bloke yra klaidų.</li>
+            {% endif %}
+            {% if maskavimo_ktl_formset.non_form_errors %}
+              <li>KTL maskavimo bloke yra klaidų.</li>
+            {% endif %}
+            {% if maskavimo_miltai_formset.non_form_errors %}
+              <li>Miltų maskavimo bloke yra klaidų.</li>
+            {% endif %}
+            {% if kainos_formset.errors %}
+              <li>Kainų eilutėse gali būti klaidų.</li>
+            {% endif %}
+            {% if maskavimo_ktl_formset.errors %}
+              <li>KTL maskavimo eilutėse gali būti klaidų.</li>
+            {% endif %}
+            {% if maskavimo_miltai_formset.errors %}
+              <li>Miltų maskavimo eilutėse gali būti klaidų.</li>
+            {% endif %}
+          </ul>
+        </div>
       {% endif %}
 
       {% csrf_token %}
+
 
       {% if form.non_field_errors %}
         <div class="poz-card" style="border-color:#fecaca;background:#fff1f2;">
