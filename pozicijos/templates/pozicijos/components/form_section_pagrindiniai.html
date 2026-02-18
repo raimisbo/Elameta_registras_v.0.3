@@ -1,0 +1,37 @@
+{# pozicijos/templates/pozicijos/components/form_section_pagrindiniai.html #}
+
+<section class="poz-card">
+  <h2 class="poz-card-title">Pagrindiniai</h2>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.klientas.label }}</div>
+    <div class="field-control">
+      {{ form.klientas }}
+      {% if form.klientas.errors %}<div class="field-errors">{{ form.klientas.errors|striptags }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.projektas.label }}</div>
+    <div class="field-control">
+      {{ form.projektas }}
+      {% if form.projektas.errors %}<div class="field-errors">{{ form.projektas.errors|striptags }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.poz_kodas.label }}</div>
+    <div class="field-control">
+      {{ form.poz_kodas }}
+      {% if form.poz_kodas.errors %}<div class="field-errors">{{ form.poz_kodas.errors|striptags }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.poz_pavad.label }}</div>
+    <div class="field-control">
+      {{ form.poz_pavad }}
+      {% if form.poz_pavad.errors %}<div class="field-errors">{{ form.poz_pavad.errors|striptags }}</div>{% endif %}
+    </div>
+  </div>
+</section>

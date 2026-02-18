@@ -1,0 +1,109 @@
+{# pozicijos/templates/pozicijos/components/form_section_detale.html #}
+
+<section class="poz-card">
+  <h2 class="poz-card-title">Detalė</h2>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.metalas.label }}</div>
+    <div class="field-control">
+      {{ form.metalas }}
+      {% if form.metalas.errors %}<div class="field-errors">{{ form.metalas.errors|striptags }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">Metalo storis (mm)</div>
+    <div class="field-control">
+      {{ form.metalo_storis }}
+      {% if form.metalo_storis.errors %}<div class="field-errors">{{ form.metalo_storis.errors|striptags }}</div>{% endif %}
+    </div>
+  </div>
+
+  <!-- BEGIN_METALO_STORIS_BLOCK -->
+  <div class="subblock">
+    <button type="button" class="btn btn-secondary" id="metalo-storis-add"
+            onclick="window.addMetaloStorisRow && window.addMetaloStorisRow()">+ Pridėti metalo storį</button>
+
+    <div id="metalo-storis-items" style="margin-top:8px;">
+      {% if pozicija %}
+        {% for ms in pozicija.metalo_storio_eilutes.all|slice:'1:' %}
+          <div class="maskavimas-item metalo-storis-item"
+               style="border:1px solid #e5e7eb; border-radius:8px; padding:8px; margin-top:8px;">
+            <div class="field-row">
+              <div class="field-label">Metalo storis (mm)</div>
+              <div class="field-control">
+                <input type="number" name="metalo_storis_values[]"
+                       value="{{ ms.storis_mm|default_if_none:'' }}"
+                       step="0.01" min="0" inputmode="decimal">
+              </div>
+            </div>
+            <button type="button" class="btn btn-secondary metalo-storis-remove">Pašalinti</button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+
+  <template id="metalo-storis-row-template">
+    <div class="maskavimas-item metalo-storis-item"
+         style="border:1px solid #e5e7eb; border-radius:8px; padding:8px; margin-top:8px;">
+      <div class="field-row">
+        <div class="field-label">Metalo storis (mm)</div>
+        <div class="field-control">
+          <input type="number" name="metalo_storis_values[]" value="" step="0.01" min="0" inputmode="decimal">
+        </div>
+      </div>
+      <button type="button" class="btn btn-secondary metalo-storis-remove">Pašalinti</button>
+    </div>
+  </template>
+  <!-- END_METALO_STORIS_BLOCK -->
+
+  <div class="field-row">
+    <div class="field-label">{{ form.plotas.label }}</div>
+    <div class="field-control">
+      {{ form.plotas }}
+      {% if form.plotas.errors %}<div class="field-errors">{{ form.plotas.errors|striptags }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.svoris.label }}</div>
+    <div class="field-control">
+      {{ form.svoris }}
+      {% if form.svoris.errors %}<div class="field-errors">{{ form.svoris.errors|striptags }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.x_mm.label }}</div>
+    <div class="field-control">
+      {{ form.x_mm }}
+      {% if form.x_mm.errors %}<div class="field-errors">{{ form.x_mm.errors|striptags }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.y_mm.label }}</div>
+    <div class="field-control">
+      {{ form.y_mm }}
+      {% if form.y_mm.errors %}<div class="field-errors">{{ form.y_mm.errors|striptags }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.z_mm.label }}</div>
+    <div class="field-control">
+      {{ form.z_mm }}
+      {% if form.z_mm.errors %}<div class="field-errors">{{ form.z_mm.errors|striptags }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">Matmenys (xyz)</div>
+    <div class="field-control">
+      <div id="matmenys-xyz-preview" style="padding-top:6px;">
+        {% if pozicija %}{{ pozicija.matmenys_xyz }}{% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+</section>

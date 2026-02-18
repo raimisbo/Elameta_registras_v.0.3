@@ -1,0 +1,120 @@
+{# pozicijos/templates/pozicijos/components/form_page_css.html #}
+<style>
+  .poz-form-page { background:#f3f3f3; }
+  .poz-form-container { max-width:1200px; margin:0 auto; padding:16px 20px 32px; }
+
+  .poz-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:12px; }
+  .poz-title { margin:0; font-size:1.35rem; font-weight:700; }
+  .poz-subtitle{ margin-top:4px; color:#6b7280; font-size:0.9rem; }
+
+  .poz-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .btn{ border:1px solid #d1d5db; background:#fff; padding:7px 12px; border-radius:8px; cursor:pointer; text-decoration:none; color:#111827; font-size:0.9rem; }
+  .btn-primary{ background:#111827; color:#fff; border-color:#111827; }
+  .btn-secondary{ background:#fff; }
+  .btn:hover{ filter:brightness(0.98); }
+
+  .poz-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width: 980px){
+    .poz-grid{ grid-template-columns:1fr; }
+  }
+
+  .poz-card{
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:10px;
+    padding:12px 12px 10px;
+    box-shadow:0 1px 0 rgba(0,0,0,0.03);
+  }
+  .poz-card--full{ grid-column:1 / -1; }
+  .poz-card-title{
+    margin:0 0 10px;
+    font-size:1rem;
+    font-weight:700;
+    border-bottom:1px solid #f3f4f6;
+    padding-bottom:6px;
+  }
+
+  .field-row{ display:grid; grid-template-columns: 220px 1fr; gap:10px; align-items:flex-start; margin:8px 0; }
+  .field-label{ color:#374151; font-size:0.88rem; padding-top:6px; }
+  .field-control input[type="text"],
+  .field-control input[type="number"],
+  .field-control input[type="date"],
+  .field-control select,
+  .field-control textarea{
+    width:100%;
+    border:1px solid #d1d5db;
+    border-radius:8px;
+    box-sizing:border-box;
+    padding:4px 6px;
+    font-size:0.9rem;
+  }
+  .field-control input[type="checkbox"]{ width:auto; padding:0; }
+
+  .field-errors{ margin-top:2px; font-size:0.8rem; color:#b91c1c; }
+  .field-help{ font-size:0.78rem; color:#9ca3af; margin-top:2px; }
+
+  .form-errors{
+    margin:10px 0;
+    padding:10px;
+    border:1px solid #ef4444;
+    background:#fff5f5;
+    border-radius:8px;
+  }
+  .form-errors__title{
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  .form-errors__list{
+    margin:6px 0 0 18px;
+    color:#991b1b;
+  }
+  .form-errors__list li{ margin:2px 0; }
+
+  .field-control--error input[type="text"],
+  .field-control--error input[type="number"],
+  .field-control--error input[type="date"],
+  .field-control--error select,
+  .field-control--error textarea{
+    border-color:#dc2626 !important;
+    box-shadow:0 0 0 1px rgba(220,38,38,.15);
+    background:#fff7f7;
+  }
+
+  .subblock.has-errors{
+    border-color:#fca5a5;
+    background:#fff7f7;
+  }
+
+  .inline-checkboxes{ display:flex; flex-wrap:wrap; gap:12px; margin:6px 0 4px; }
+  .inline-checkboxes label{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap; font-size:0.9rem; cursor:pointer; }
+
+  .subblock{ margin-top:8px; padding:8px 10px; border:1px dashed #d1d5db; border-radius:6px; background:#fff; }
+
+  /* Paslauga: KTL (siauresnis) + Miltai (platesnis) */
+  .paslauga-subgrid{
+    display:grid;
+    grid-template-columns: minmax(360px, 520px) 1fr;
+    gap:12px;
+    align-items:start;
+  }
+  .paslauga-subgrid.one-col{
+    grid-template-columns:1fr;
+  }
+  @media (max-width: 980px){
+    .paslauga-subgrid{ grid-template-columns:1fr; }
+  }
+
+  /* KTL/Miltai viduje: siauresnė label kolona, kad blokas "susitrauktų" */
+  #ktl-subblock .field-row,
+  #miltai-subblock .field-row{
+    grid-template-columns: 160px 1fr;
+  }
+
+  /* KTL/Miltai textarea – kad nebūtų suspaustos iškart */
+  #ktl-subblock textarea,
+  #miltai-subblock textarea{
+    min-height: 74px;
+  }
+
+  textarea { resize: vertical; }
+</style>
