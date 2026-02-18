@@ -1,0 +1,91 @@
+{# pozicijos/templates/pozicijos/components/form_page_js.html #}
+{% load static %}
+
+<script src="{% static 'pozicijos/js/poz_form_engine.js' %}"></script>
+
+<!-- BEGIN_METALO_STORIS_JS -->
+<script>
+window.addMetaloStorisRow = function() {
+  var items = document.getElementById("metalo-storis-items");
+  var tpl = document.getElementById("metalo-storis-row-template");
+  if (!items || !tpl) return false;
+  items.insertAdjacentHTML("beforeend", tpl.innerHTML);
+
+  items.querySelectorAll(".metalo-storis-remove").forEach(function(btn){
+    if (btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", function(e){
+      e.preventDefault();
+      var row = btn.closest(".metalo-storis-item");
+      if (row) row.remove();
+    });
+  });
+  return false;
+};
+
+document.addEventListener("DOMContentLoaded", function() {
+  var items = document.getElementById("metalo-storis-items");
+  if (!items) return;
+  items.querySelectorAll(".metalo-storis-remove").forEach(function(btn){
+    if (btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", function(e){
+      e.preventDefault();
+      var row = btn.closest(".metalo-storis-item");
+      if (row) row.remove();
+    });
+  });
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // 1) Paryškinti field-control, jei viduje yra klaidos
+  document.querySelectorAll(".field-control").forEach(function (fc) {
+    if (fc.querySelector(".field-errors, .errorlist")) {
+      fc.classList.add("field-control--error");
+    }
+  });
+
+  // 2) Jei klaidos paslėptuose subblokuose – atverti juos
+  function hasErrors(el) {
+    return !!(el && el.querySelector(".field-errors, .errorlist"));
+  }
+  function showIfHidden(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (hasErrors(el)) {
+      el.style.display = "";
+      el.classList.add("has-errors");
+    }
+  }
+
+  showIfHidden("ktl-subblock");
+  showIfHidden("miltai-subblock");
+  showIfHidden("maskavimas_ktl-items");
+  showIfHidden("maskavimas_miltai-items");
+
+  // 3) Jeigu checkbox valdo bloką, o bloke klaidos – checkbox turi būti įjungtas
+  function ensureChecked(checkboxId, blockId) {
+    var cb = document.getElementById(checkboxId);
+    var block = document.getElementById(blockId);
+    if (!cb || !block) return;
+    if (hasErrors(block)) {
+      cb.checked = true;
+      block.style.display = "";
+      block.classList.add("has-errors");
+      cb.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  ensureChecked("id_paslauga_ktl", "ktl-subblock");
+  ensureChecked("id_paslauga_miltai", "miltai-subblock");
+
+  // 4) Prasukti iki pirmos klaidos
+  var firstErr = document.querySelector(".field-errors, .errorlist, #form-errors-summary");
+  if (firstErr) {
+    firstErr.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+});
+</script>
+<!-- END_METALO_STORIS_JS -->
