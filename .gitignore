@@ -32,3 +32,31 @@ Thumbs.db
 # --- PyCharm specific ---
 *.ipr
 *.iws
+
+# --- macOS AppleDouble / resource forks ---
+._*
+.AppleDouble
+.Spotlight-V100
+.Trashes
+
+# --- Local backups / exports ---
+*.bak
+*.zip
+
+# --- SQLite additional files ---
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+
+# --- Django / Python runtime ---
+*.log
+*.pid
+
+# --- Test / coverage ---
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# --- Node / frontend (if present) ---
+node_modules/
