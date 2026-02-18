@@ -1,10 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{# pozicijos/templates/pozicijos/components/form_header.html #}
+
+<div class="poz-header">
+    <div>
+        <h1 class="poz-title">
+            {% if pozicija %}Pozicija {{ pozicija.poz_kodas|default:pozicija.id }}{% else %}Nauja pozicija{% endif %}
+        </h1>
+        <div class="poz-subtitle">Redagavimo forma.</div>
+    </div>
+
+    <div class="poz-actions">
+        {% if pozicija %}
+        <a class="btn btn-secondary" href="{% url 'pozicijos:detail' pozicija.id %}">Grįžti</a>
+        {% else %}
+        <a class="btn btn-secondary" href="{% url 'pozicijos:list' %}">Grįžti</a>
+        {% endif %}
+    </div>
+</div>

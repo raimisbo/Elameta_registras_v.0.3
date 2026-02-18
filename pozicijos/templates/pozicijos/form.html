@@ -61,7 +61,7 @@
   .field-errors{ margin-top:2px; font-size:0.8rem; color:#b91c1c; }
   .field-help{ font-size:0.78rem; color:#9ca3af; margin-top:2px; }
 
-    .form-errors{
+  .form-errors{
     margin:10px 0;
     padding:10px;
     border:1px solid #ef4444;
@@ -92,7 +92,6 @@
     border-color:#fca5a5;
     background:#fff7f7;
   }
-
 
   .inline-checkboxes{ display:flex; flex-wrap:wrap; gap:12px; margin:6px 0 4px; }
   .inline-checkboxes label{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap; font-size:0.9rem; cursor:pointer; }
@@ -133,60 +132,15 @@
 <div class="poz-form-page">
   <div class="poz-form-container">
 
-    <div class="poz-header">
-      <div>
-        <h1 class="poz-title">
-          {% if pozicija %}Pozicija {{ pozicija.poz_kodas|default:pozicija.id }}{% else %}Nauja pozicija{% endif %}
-        </h1>
-        <div class="poz-subtitle">Redagavimo forma.</div>
-      </div>
-
-      <div class="poz-actions">
-        {% if pozicija %}
-          <a class="btn btn-secondary" href="{% url 'pozicijos:detail' pozicija.id %}">Grįžti</a>
-        {% else %}
-          <a class="btn btn-secondary" href="{% url 'pozicijos:list' %}">Grįžti</a>
-        {% endif %}
-      </div>
-    </div>
+      {# Header iškeltas į komponentą #}
+      {% include "pozicijos/components/form_header.html" %}
 
     <form method="post" enctype="multipart/form-data">
-      {% if form.errors or form.non_field_errors or kainos_formset.non_form_errors or maskavimo_ktl_formset.non_form_errors or maskavimo_miltai_formset.non_form_errors %}
-        <div class="form-errors" id="form-errors-summary">
-          <div class="form-errors__title">Patikrinkite formos klaidas</div>
 
-          {% if form.non_field_errors %}
-            <div>{{ form.non_field_errors }}</div>
-          {% endif %}
-
-          <ul class="form-errors__list">
-            {% if form.errors %}
-              <li>Pagrindinės formos laukai turi klaidų.</li>
-            {% endif %}
-            {% if kainos_formset.non_form_errors %}
-              <li>Kainų bloke yra klaidų.</li>
-            {% endif %}
-            {% if maskavimo_ktl_formset.non_form_errors %}
-              <li>KTL maskavimo bloke yra klaidų.</li>
-            {% endif %}
-            {% if maskavimo_miltai_formset.non_form_errors %}
-              <li>Miltų maskavimo bloke yra klaidų.</li>
-            {% endif %}
-            {% if kainos_formset.errors %}
-              <li>Kainų eilutėse gali būti klaidų.</li>
-            {% endif %}
-            {% if maskavimo_ktl_formset.errors %}
-              <li>KTL maskavimo eilutėse gali būti klaidų.</li>
-            {% endif %}
-            {% if maskavimo_miltai_formset.errors %}
-              <li>Miltų maskavimo eilutėse gali būti klaidų.</li>
-            {% endif %}
-          </ul>
-        </div>
-      {% endif %}
+        {# Klaidos suvestinė iškelta į komponentą (čia buvo if/endif lūžiai) #}
+        {% include "pozicijos/components/form_error_summary.html" %}
 
       {% csrf_token %}
-
 
       {% if form.non_field_errors %}
         <div class="poz-card" style="border-color:#fecaca;background:#fff1f2;">
@@ -445,6 +399,7 @@
             <div class="field-row">
               <div class="field-label">Detalių išdėstymas rėme</div>
               <div class="field-control">
+                  <!-- 1 eilė: I / A / G -->
                 <div style="display:grid; grid-template-columns:repeat(3, minmax(90px, 1fr)); gap:10px;">
                   <div>
                     <div class="field-help" style="margin-bottom:4px;">I (ilgis)</div>
@@ -469,6 +424,7 @@
                   </div>
                 </div>
 
+                  <!-- 2 eilė: sandauga -->
                 <div style="display:grid; grid-template-columns:minmax(120px, 180px); gap:10px; margin-top:8px;">
                   <div>
                     <div class="field-help" style="margin-bottom:4px;">I×A×G</div>
@@ -881,93 +837,5 @@
 {% endblock %}
 
 {% block page_js %}
-  <script src="{% static 'pozicijos/js/poz_form_engine.js' %}"></script>
-
-  <!-- BEGIN_METALO_STORIS_JS -->
-  <script>
-  window.addMetaloStorisRow = function() {
-    var items = document.getElementById("metalo-storis-items");
-    var tpl = document.getElementById("metalo-storis-row-template");
-    if (!items || !tpl) return false;
-    items.insertAdjacentHTML("beforeend", tpl.innerHTML);
-
-    items.querySelectorAll(".metalo-storis-remove").forEach(function(btn){
-      if (btn.dataset.bound === "1") return;
-      btn.dataset.bound = "1";
-      btn.addEventListener("click", function(e){
-        e.preventDefault();
-        var row = btn.closest(".metalo-storis-item");
-        if (row) row.remove();
-      });
-    });
-    return false;
-  };
-
-  document.addEventListener("DOMContentLoaded", function() {
-    var items = document.getElementById("metalo-storis-items");
-    if (!items) return;
-    items.querySelectorAll(".metalo-storis-remove").forEach(function(btn){
-      if (btn.dataset.bound === "1") return;
-      btn.dataset.bound = "1";
-      btn.addEventListener("click", function(e){
-        e.preventDefault();
-        var row = btn.closest(".metalo-storis-item");
-        if (row) row.remove();
-      });
-    });
-  });
-  </script>
-
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    // 1) Paryškinti field-control, jei viduje yra klaidos
-    document.querySelectorAll(".field-control").forEach(function (fc) {
-      if (fc.querySelector(".field-errors, .errorlist")) {
-        fc.classList.add("field-control--error");
-      }
-    });
-
-    // 2) Jei klaidos paslėptuose subblokuose – atverti juos
-    function hasErrors(el) {
-      return !!(el && el.querySelector(".field-errors, .errorlist"));
-    }
-    function showIfHidden(id) {
-      var el = document.getElementById(id);
-      if (!el) return;
-      if (hasErrors(el)) {
-        el.style.display = "";
-        el.classList.add("has-errors");
-      }
-    }
-
-    showIfHidden("ktl-subblock");
-    showIfHidden("miltai-subblock");
-    showIfHidden("maskavimas_ktl-items");
-    showIfHidden("maskavimas_miltai-items");
-
-    // 3) Jeigu checkbox valdo bloką, o bloke klaidos – checkbox turi būti įjungtas
-    function ensureChecked(checkboxId, blockId) {
-      var cb = document.getElementById(checkboxId);
-      var block = document.getElementById(blockId);
-      if (!cb || !block) return;
-      if (hasErrors(block)) {
-        cb.checked = true;
-        block.style.display = "";
-        block.classList.add("has-errors");
-        cb.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-    }
-
-    ensureChecked("id_paslauga_ktl", "ktl-subblock");
-    ensureChecked("id_paslauga_miltai", "miltai-subblock");
-
-    // 4) Prasukti iki pirmos klaidos
-    var firstErr = document.querySelector(".field-errors, .errorlist, #form-errors-summary");
-    if (firstErr) {
-      firstErr.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  });
-</script>
-
-  <!-- END_METALO_STORIS_JS -->
+{% include "pozicijos/components/form_page_js.html" %}
 {% endblock %}
