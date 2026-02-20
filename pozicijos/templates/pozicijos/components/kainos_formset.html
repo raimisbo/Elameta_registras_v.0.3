@@ -121,6 +121,11 @@
 
   .date-stack{ display:flex; flex-direction:column; gap:4px; }
 
+  /* FIX: native date input'ai turi didesnį minimalų plotį ir gali „užlipti“ ant Pastabų.
+     Leidžiam jiems susitraukti ir šitam stulpeliui nuimam nowrap. */
+  .cell-gal, .cell-past { white-space: normal; }
+  .date-stack input[type="date"]{ min-width:0; max-width:100%; }
+
   .poz-price-table input,
   .poz-price-table select,
   .poz-price-table textarea{ width:100%; box-sizing:border-box; }
@@ -144,8 +149,9 @@
   .col-kaina{ width:90px; }
   .col-matas{ width:120px; }
   .col-qty{ width:80px; }
-  .col-gal{ width:140px; }
+  .col-gal{ width:180px; }
   .col-bus{ width:110px; }
+  .col-past{ width:240px; }
   .col-hist{ width:60px; }
   .col-del{ width:55px; }
 </style>

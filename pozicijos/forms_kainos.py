@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from django import forms
 from decimal import Decimal
+
+from django import forms
 from django.forms import inlineformset_factory
 
 from .models import Pozicija, KainosEilute
-
 
 BUSENA_UI_CHOICES = [
     ("aktuali", "Aktuali"),
@@ -26,7 +26,10 @@ class KainosEiluteForm(forms.ModelForm):
     Taisyklė (sutarta):
     - Jei eilutė pažymėta DELETE -> jos nevaliduojam.
     - Jei eilutė nauja ir "efektyviai tuščia" -> leidžiam praeiti be klaidų ir jos neišsaugom.
-    - Jei pildoma (užpildytas bent vienas iš esminių laukų) -> privaloma kaina + kiekis_nuo + kiekis_iki; nuo <= iki.
+    - Jei pildoma (užpildytas bent vienas iš esminių laukų) -> privaloma kaina.
+      Kiekio intervalas (kiekis_nuo/kiekis_iki) yra PASIRENKAMAS:
+        * jei pildomas bent vienas iš jų -> privaloma abu ir nuo <= iki.
+        * jei abu tušti -> leidžiam kainą įvesti be detalių skaičiaus.
     - Esamai (instance.pk) eilutei (jei ne DELETE) visada taikom privalomumą (neleidžiam paversti į „tuščią“).
     """
 
@@ -159,21 +162,36 @@ class KainosEiluteForm(forms.ModelForm):
         kk = cleaned.get("kiekis_iki")
         kaina = cleaned.get("kaina")
 
-        if kaina in (None, ""):
-            self.add_error("kaina", "Privaloma užpildyti „Kaina“.")
-        if kn in (None, ""):
-            self.add_error("kiekis_nuo", "Privaloma užpildyti „Kiekis nuo“.")
-        if kk in (None, ""):
-            self.add_error("kiekis_iki", "Privaloma užpildyti „Kiekis iki“.")
+        def _blank(v) -> bool:
+            if v is None:
+                return True
+            if isinstance(v, str):
+                return v.strip() == ""
+            return False
 
-        # jei abu yra – logika
-        try:
-            if kn is not None and kk is not None and str(kn).strip() != "" and str(kk).strip() != "":
-                if int(kn) > int(kk):
-                    self.add_error("kiekis_iki", "„Kiekis iki“ turi būti didesnis arba lygus „Kiekis nuo“.")
-        except Exception:
-            # jei vartotojas įvedė ne skaičių – Django pats paprastai duoda klaidą
-            pass
+        # 1) Kaina – visada privaloma, jei eilutė nėra "efektyviai tuščia" (tą aukščiau jau atfiltravom)
+        if _blank(kaina):
+            self.add_error("kaina", "Privaloma užpildyti „Kaina“.")
+
+        # 2) Kiekio intervalas – neprivalomas. Bet jei pildomas bent vienas -> privaloma abu.
+        has_any_qty = (not _blank(kn)) or (not _blank(kk))
+        if has_any_qty:
+            if _blank(kn):
+                self.add_error("kiekis_nuo", "Jei nurodai intervalą – privaloma užpildyti „Kiekis nuo“.")
+            if _blank(kk):
+                self.add_error("kiekis_iki", "Jei nurodai intervalą – privaloma užpildyti „Kiekis iki“.")
+
+            # jei abu yra – logika
+            try:
+                if not _blank(kn) and not _blank(kk):
+                    if int(kn) > int(kk):
+                        self.add_error(
+                            "kiekis_iki",
+                            "„Kiekis iki“ turi būti didesnis arba lygus „Kiekis nuo“.",
+                        )
+            except Exception:
+                # jei vartotojas įvedė ne skaičių – Django pats paprastai duoda klaidą
+                pass
 
         return cleaned
 
