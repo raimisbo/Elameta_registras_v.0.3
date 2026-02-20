@@ -188,19 +188,19 @@
           <span class="poz-field-value">
             {% if metalo_storiai %}
               {% for m in metalo_storiai %}
-                {{ m.storis_mm }}{% if not forloop.last %}, {% endif %}
+                {{ m.storis_mm|floatformat:1 }}{% if not forloop.last %}, {% endif %}
               {% endfor %}
             {% elif pozicija.metalo_storis is not None %}
-              {{ pozicija.metalo_storis }}
+              {{ pozicija.metalo_storis|floatformat:1 }}
             {% else %}
               —
             {% endif %}
           </span>
         </div>
 
-        <div class="poz-field-row"><span class="poz-field-label">Plotas</span><span class="poz-field-value">{% if pozicija.plotas is not None %}{{ pozicija.plotas }}{% else %}—{% endif %}</span>
+        <div class="poz-field-row"><span class="poz-field-label">Plotas (m²)</span><span class="poz-field-value">{% if pozicija.plotas is not None %}{{ pozicija.plotas }}{% else %}—{% endif %}</span>
         </div>
-        <div class="poz-field-row"><span class="poz-field-label">Svoris</span><span class="poz-field-value">{% if pozicija.svoris is not None %}{{ pozicija.svoris }}{% else %}—{% endif %}</span>
+        <div class="poz-field-row"><span class="poz-field-label">Svoris (kg)</span><span class="poz-field-value">{% if pozicija.svoris %}{{ pozicija.svoris|floatformat:3 }}{% else %}—{% endif %}</span>
         </div>
         <div class="poz-field-row"><span class="poz-field-label">Matmenys (xyz)</span><span class="poz-field-value">{% if pozicija.matmenys_xyz %}{{ pozicija.matmenys_xyz }}{% else %}—{% endif %}</span>
         </div>

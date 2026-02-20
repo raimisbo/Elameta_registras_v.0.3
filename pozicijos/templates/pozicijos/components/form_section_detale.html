@@ -34,7 +34,7 @@
               <div class="field-control">
                 <input type="number" name="metalo_storis_values[]"
                        value="{{ ms.storis_mm|default_if_none:'' }}"
-                       step="0.01" min="0" inputmode="decimal">
+                       step="0.1" min="0" inputmode="decimal" data-decimals="1">
               </div>
             </div>
             <button type="button" class="btn btn-secondary metalo-storis-remove">Pašalinti</button>
@@ -50,7 +50,8 @@
       <div class="field-row">
         <div class="field-label">Metalo storis (mm)</div>
         <div class="field-control">
-          <input type="number" name="metalo_storis_values[]" value="" step="0.01" min="0" inputmode="decimal">
+            <input type="number" name="metalo_storis_values[]" value="" step="0.1" min="0" inputmode="decimal"
+                   data-decimals="1">
         </div>
       </div>
       <button type="button" class="btn btn-secondary metalo-storis-remove">Pašalinti</button>
@@ -59,7 +60,7 @@
   <!-- END_METALO_STORIS_BLOCK -->
 
   <div class="field-row">
-    <div class="field-label">{{ form.plotas.label }}</div>
+      <div class="field-label">Plotas (m²)</div>
     <div class="field-control">
       {{ form.plotas }}
       {% if form.plotas.errors %}<div class="field-errors">{{ form.plotas.errors|striptags }}</div>{% endif %}
@@ -67,7 +68,7 @@
   </div>
 
   <div class="field-row">
-    <div class="field-label">{{ form.svoris.label }}</div>
+      <div class="field-label">Svoris (kg)</div>
     <div class="field-control">
       {{ form.svoris }}
       {% if form.svoris.errors %}<div class="field-errors">{{ form.svoris.errors|striptags }}</div>{% endif %}

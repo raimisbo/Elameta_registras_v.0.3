@@ -134,18 +134,103 @@
   }
 
   // =========================
-  // Paslauga subblokų rodymas (KTL/Miltai)
+  // Detalė: vienetų formatavimas (blur)
+  // - Metalo storis mm: 1 sk. po kablelio
+  // - Plotas m2: neribotas (neformatuojam)
+  // - Svoris kg: 3 sk. po kablelio
+  // =========================
+  function initDetaleUnitsFormatting() {
+    function normalizeNumberString(v) {
+      return String(v || "").trim().replace(",", ".");
+    }
+
+    function formatFixedOnBlur(el, decimals) {
+      if (!el || el.dataset.fixedBound === "1") return;
+      el.dataset.fixedBound = "1";
+      el.addEventListener("blur", function () {
+        var raw = normalizeNumberString(el.value);
+        if (!raw) return;
+        var n = Number(raw);
+        if (!Number.isFinite(n)) return;
+        el.value = n.toFixed(decimals);
+      });
+    }
+
+    // Metalo storis (pagrindinis laukas): 1 dp
+    formatFixedOnBlur(document.getElementById("id_metalo_storis"), 1);
+
+    // Svoris: 3 dp
+    formatFixedOnBlur(document.getElementById("id_svoris"), 3);
+
+    // Dinaminės metalo storio eilutės: 1 dp (metalo_storis_values[])
+    document.querySelectorAll('input[name="metalo_storis_values[]"]').forEach(function (el) {
+      formatFixedOnBlur(el, 1);
+    });
+
+    // Plotas: neribotas – nieko neformatuojam
+  }
+
+  // =========================
+  // Paslauga subblokų rodymas (KTL/Miltai) + PRIVERSTINIS Paruošimas lock
   // =========================
   function initPaslaugaBlocks() {
+    // Checkbox'ai
     var ktlCb = $("#id_paslauga_ktl");
     var milCb = $("#id_paslauga_miltai");
     var parCb = $("#id_paslauga_paruosimas");
 
+    // Subblokai / grid
     var ktlBlock = $("#ktl-subblock");
     var milBlock = $("#miltai-subblock");
     var grid = $("#paslauga-subgrid");
 
+    // Paruošimo "eilutės" tekstinis laukas
+    var parText = $("#id_paruosimas");
+
+    // Paruošimo checkbox wrapper (tavo template turi: <label id="paruosimas-lock-wrap">...)
+    var parWrap = $("#paruosimas-lock-wrap");
+
     if (!ktlBlock || !milBlock || !grid) return;
+
+    function applyParuosimasAutofill() {
+      if (!parCb || !parText) return;
+
+      var on = !!parCb.checked;
+      var autoValue = "Gardobond 24T";
+
+      if (on) {
+        var v = String(parText.value || "").trim();
+        // pildom tik jei tuščia ARBA tai buvo mūsų autofill
+        if (v === "" || parText.dataset.autofill === "1") {
+          parText.value = autoValue;
+          parText.dataset.autofill = "1";
+        }
+      } else {
+        // išvalom tik jei tai buvo mūsų autofill ir vartotojas nepakeitė
+        var v2 = String(parText.value || "").trim();
+        if (parText.dataset.autofill === "1" && v2 === autoValue) {
+          parText.value = "";
+          delete parText.dataset.autofill;
+        }
+      }
+    }
+
+    function setLocked(lock) {
+      if (!parCb) return;
+
+      if (lock) {
+        parCb.checked = true;
+        parCb.disabled = true;
+        parCb.dataset.locked = "1";
+        if (parWrap) parWrap.classList.add("is-locked");
+      } else {
+        parCb.disabled = false;
+        delete parCb.dataset.locked;
+        if (parWrap) parWrap.classList.remove("is-locked");
+      }
+
+      applyParuosimasAutofill();
+    }
 
     function render() {
       var ktlOn = !!(ktlCb && ktlCb.checked);
@@ -154,21 +239,69 @@
       ktlBlock.style.display = ktlOn ? "" : "none";
       milBlock.style.display = milOn ? "" : "none";
 
-      if (ktlOn && milOn) {
-        grid.classList.remove("one-col");
-      } else {
-        grid.classList.add("one-col");
-      }
+      if (ktlOn && milOn) grid.classList.remove("one-col");
+      else grid.classList.add("one-col");
 
-      if ((ktlOn || milOn) && parCb && !parCb.checked) {
-        parCb.checked = true;
-      }
+      // Jei KTL arba Miltai -> Paruošimas privalomas ir negali būti atžymimas
+      setLocked(ktlOn || milOn);
     }
 
     [ktlCb, milCb].forEach(function (el) {
       if (!el) return;
       el.addEventListener("change", render);
     });
+
+    // Kritinė apsauga: label/wrapper gali bandyti perjungti – blokuojam CAPTURE fazėje.
+    if (parWrap) {
+      ["click", "mousedown", "pointerdown", "touchstart"].forEach(function (evt) {
+        parWrap.addEventListener(
+          evt,
+          function (e) {
+            if (parCb && parCb.dataset.locked === "1") {
+              e.preventDefault();
+              e.stopPropagation();
+              parCb.checked = true;
+              return false;
+            }
+          },
+          true
+        );
+      });
+
+      parWrap.addEventListener(
+        "keydown",
+        function (e) {
+          if (!parCb || parCb.dataset.locked !== "1") return;
+          if (e.key === " " || e.key === "Enter") {
+            e.preventDefault();
+            e.stopPropagation();
+            parCb.checked = true;
+            return false;
+          }
+        },
+        true
+      );
+    }
+
+    // Jei vis tiek įvyksta change (pvz. programiškai) – atstatom + autofill
+    if (parCb) {
+      parCb.addEventListener("change", function () {
+        if (parCb.dataset.locked === "1") {
+          parCb.checked = true;
+          parCb.disabled = true;
+        }
+        applyParuosimasAutofill();
+      });
+    }
+
+    // Jei vartotojas pats pakeičia tekstą – nebeperrašom automatiškai
+    if (parText) {
+      parText.addEventListener("input", function () {
+        if (parText.dataset.autofill === "1") {
+          delete parText.dataset.autofill;
+        }
+      });
+    }
 
     render();
   }
@@ -228,6 +361,9 @@
         bindAutoResize(newRow);
       }
       ensureVisible();
+
+      // Nauja eilutė gali turėti metalo storio input'ą – perbindinam formatavimą
+      initDetaleUnitsFormatting();
     });
 
     ensureVisible();
@@ -262,10 +398,10 @@
       var prefix = root.getAttribute("data-prefix");
       if (!prefix) return;
 
-      var totalInput = root.querySelector('#id_' + prefix + '-TOTAL_FORMS');
-      var tbody = root.querySelector('#kainu-formset-body-' + prefix);
-      var addBtn = root.querySelector('#kainos-add-row-' + prefix);
-      var tpl = document.getElementById('kainos-empty-template-' + prefix);
+      var totalInput = root.querySelector("#id_" + prefix + "-TOTAL_FORMS");
+      var tbody = root.querySelector("#kainu-formset-body-" + prefix);
+      var addBtn = root.querySelector("#kainos-add-row-" + prefix);
+      var tpl = document.getElementById("kainos-empty-template-" + prefix);
 
       if (!totalInput || !tbody || !addBtn || !tpl) return;
 
@@ -280,7 +416,7 @@
         // busenos spalvinimas
         var busSel = row.querySelector('select[name$="-busena_ui"]');
         function recolor() {
-          var v = (busSel && busSel.value) ? busSel.value : "";
+          var v = busSel && busSel.value ? busSel.value : "";
           row.classList.remove("kaina-row--aktuali", "kaina-row--neaktuali");
           if (v === "aktuali") row.classList.add("kaina-row--aktuali");
           else row.classList.add("kaina-row--neaktuali");
@@ -320,6 +456,11 @@
     initMatmenysPreview();
     initKtlSandaugaPreview();
     initPapildomosPaslaugosToggle();
+
+    // Detalė formatavimas (mm 1dp, kg 3dp)
+    initDetaleUnitsFormatting();
+
+    // Paslauga lock/autofill
     initPaslaugaBlocks();
 
     initMaskavimoFormset("maskavimas_ktl");

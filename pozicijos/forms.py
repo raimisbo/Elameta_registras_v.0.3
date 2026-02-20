@@ -117,7 +117,12 @@ class PozicijaForm(forms.ModelForm):
         labels = {"pakavimas": "Aprašymas", "instrukcija": "Pastabos"}
         widgets = {
             "atlikimo_terminas": forms.NumberInput(attrs={"min": 0, "step": 1, "inputmode": "numeric"}),
-            "metalo_storis": forms.NumberInput(attrs={"min": 0, "step": "0.01", "inputmode": "decimal", "placeholder": "mm"}),
+            "metalo_storis": forms.NumberInput(
+                attrs={"min": 0, "step": "0.1", "inputmode": "decimal", "placeholder": "mm", "data-decimals": "1"}),
+            "plotas": forms.NumberInput(attrs={"min": 0, "step": "any", "inputmode": "decimal", "placeholder": "m²"}),
+            "svoris": forms.NumberInput(
+                attrs={"min": 0, "step": "0.001", "inputmode": "decimal", "placeholder": "kg", "data-decimals": "3"}),
+
             "instrukcija": forms.Textarea(attrs={"rows": 2, "data-autoresize": "1"}),
             "paslaugu_pastabos": forms.Textarea(attrs={"rows": 2, "data-autoresize": "1"}),
             "papildomos_paslaugos_aprasymas": forms.Textarea(attrs={"rows": 2, "data-autoresize": "1"}),
@@ -194,9 +199,27 @@ class PozicijaForm(forms.ModelForm):
         metalo_storis_raw = (self.data.get("metalo_storis") or "").strip()
         if metalo_storis_raw:
             try:
-                cleaned["metalo_storis"] = Decimal(metalo_storis_raw.replace(",", ".")).quantize(Decimal("0.01"))
+                cleaned["metalo_storis"] = Decimal(metalo_storis_raw.replace(",", ".")).quantize(Decimal("0.1"))
             except (InvalidOperation, ValueError):
-                self.add_error("metalo_storis", "Įveskite skaičių (mm), pvz. 1.50")
+                self.add_error("metalo_storis", "Įveskite skaičių (mm), pvz. 1.5")
+
+        # Plotas: m², neribotas po kablelio (tik normalizuojam kablelį į tašką)
+        plotas_raw = (self.data.get("plotas") or "").strip()
+        if plotas_raw:
+            try:
+                _ = Decimal(plotas_raw.replace(",", "."))  # validacija
+                cleaned["plotas"] = plotas_raw.replace(",", ".")
+            except (InvalidOperation, ValueError):
+                self.add_error("plotas", "Įveskite skaičių (m²), pvz. 0.245 arba 12.5")
+
+        # Svoris: kg, 3 sk. po kablelio
+        svoris_raw = (self.data.get("svoris") or "").strip()
+        if svoris_raw:
+            try:
+                d = Decimal(svoris_raw.replace(",", ".")).quantize(Decimal("0.001"))
+                cleaned["svoris"] = f"{d:.3f}"
+            except (InvalidOperation, ValueError):
+                self.add_error("svoris", "Įveskite skaičių (kg), pvz. 1.250")
 
         # KTL dangos storis
         try:
