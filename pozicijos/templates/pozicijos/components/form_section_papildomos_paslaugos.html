@@ -1,0 +1,26 @@
+{# pozicijos/templates/pozicijos/components/form_section_papildomos_paslaugos.html #}
+
+<section class="poz-card">
+    <h2 class="poz-card-title">Papildomos paslaugos</h2>
+
+    <div class="field-row">
+        <div class="field-label">{{ form.papildomos_paslaugos.label }}</div>
+        <div class="field-control">
+            {{ form.papildomos_paslaugos }}
+            {% if form.papildomos_paslaugos.errors %}
+            <div class="field-errors">{{ form.papildomos_paslaugos.errors|striptags }}</div>
+            {% endif %}
+            <div class="field-help">Pasirinkus „Yra“ – atsiras aprašymo laukas.</div>
+        </div>
+    </div>
+
+    <div class="field-row" id="papildomos-paslaugos-aprasymas-row" style="display:none;">
+        <div class="field-label">{{ form.papildomos_paslaugos_aprasymas.label }}</div>
+        <div class="field-control">
+            {{ form.papildomos_paslaugos_aprasymas }}
+            {% if form.papildomos_paslaugos_aprasymas.errors %}
+            <div class="field-errors">{{ form.papildomos_paslaugos_aprasymas.errors|striptags }}</div>
+            {% endif %}
+        </div>
+    </div>
+</section>

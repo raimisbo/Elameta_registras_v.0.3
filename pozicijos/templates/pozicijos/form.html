@@ -19,10 +19,11 @@
 
     <form method="post" enctype="multipart/form-data">
 
-        {# Klaidos suvestinė iškelta į komponentą (čia buvo if/endif lūžiai) #}
+      {# Klaidos suvestinė iškelta į komponentą #}
         {% include "pozicijos/components/form_error_summary.html" %}
 
       {% csrf_token %}
+
 
       {% if form.non_field_errors %}
         <div class="poz-card" style="border-color:#fecaca;background:#fff1f2;">
@@ -30,200 +31,217 @@
         </div>
       {% endif %}
 
+
       <div class="poz-grid">
 
-      <section class="poz-card">
-        <h2 class="poz-card-title">Pagrindiniai</h2>
-
+        {# Pagrindiniai – jau pilnas sekcijos blokas snippete #}
         {% include "pozicijos/components/form_section_pagrindiniai.html" %}
 
-      </section>
-
-      <section class="poz-card">
-        <h2 class="poz-card-title">Detalė</h2>
-
+        {# Detalė – jau pilnas sekcijos blokas snippete #}
         {% include "pozicijos/components/form_section_detale.html" %}
 
-      </section>
+        <section class="poz-card poz-card--full">
+          <h2 class="poz-card-title">Paslauga</h2>
 
-      <section class="poz-card poz-card--full">
-        <h2 class="poz-card-title">Paslauga</h2>
+          {{ form.spalva.as_hidden }}
 
-        {{ form.spalva.as_hidden }}
-
-        <div class="inline-checkboxes">
-          <label>{{ form.paslauga_ktl }} <span>{{ form.paslauga_ktl.label }}</span></label>
-          <label>{{ form.paslauga_miltai }} <span>{{ form.paslauga_miltai.label }}</span></label>
-          <label id="paruosimas-lock-wrap">{{ form.paslauga_paruosimas }} <span>{{ form.paslauga_paruosimas.label }}</span></label>
-        </div>
-
-        <div class="field-row">
-          <div class="field-label">{{ form.paruosimas.label }}</div>
-          <div class="field-control">
-            {{ form.paruosimas }}
-            {% if form.paruosimas.errors %}<div class="field-errors">{{ form.paruosimas.errors|striptags }}</div>{% endif %}
+          <div class="inline-checkboxes">
+            <label>{{ form.paslauga_ktl }} <span>{{ form.paslauga_ktl.label }}</span></label>
+            <label>{{ form.paslauga_miltai }} <span>{{ form.paslauga_miltai.label }}</span></label>
+            <label id="paruosimas-lock-wrap">{{ form.paslauga_paruosimas }}
+              <span>{{ form.paslauga_paruosimas.label }}</span></label>
           </div>
-        </div>
 
-        <div class="field-row">
-          <div class="field-label">{{ form.padengimas.label }}</div>
-          <div class="field-control">
-            {{ form.padengimas }}
-            {% if form.padengimas.errors %}<div class="field-errors">{{ form.padengimas.errors|striptags }}</div>{% endif %}
+          <div class="field-row">
+            <div class="field-label">{{ form.paruosimas.label }}</div>
+            <div class="field-control">
+              {{ form.paruosimas }}
+              {% if form.paruosimas.errors %}
+              <div class="field-errors">{{ form.paruosimas.errors|striptags }}</div>
+              {% endif %}
+            </div>
           </div>
-        </div>
 
-        <div class="field-row">
-          <div class="field-label">{{ form.padengimo_standartas.label }}</div>
-          <div class="field-control">
-            {{ form.padengimo_standartas }}
-            {% if form.padengimo_standartas.errors %}<div class="field-errors">{{ form.padengimo_standartas.errors|striptags }}</div>{% endif %}
+          <div class="field-row">
+            <div class="field-label">{{ form.padengimas.label }}</div>
+            <div class="field-control">
+              {{ form.padengimas }}
+              {% if form.padengimas.errors %}
+              <div class="field-errors">{{ form.padengimas.errors|striptags }}</div>
+              {% endif %}
+            </div>
           </div>
-        </div>
 
-        <div class="field-row">
-          <div class="field-label">{{ form.partiju_dydziai.label }}</div>
-          <div class="field-control">
-            {{ form.partiju_dydziai }}
-            {% if form.partiju_dydziai.errors %}<div class="field-errors">{{ form.partiju_dydziai.errors|striptags }}</div>{% endif %}
+          <div class="field-row">
+            <div class="field-label">{{ form.padengimo_standartas.label }}</div>
+            <div class="field-control">
+              {{ form.padengimo_standartas }}
+              {% if form.padengimo_standartas.errors %}
+              <div class="field-errors">{{ form.padengimo_standartas.errors|striptags }}</div>
+              {% endif %}
+            </div>
           </div>
-        </div>
 
-        <div class="field-row">
-          <div class="field-label">Metiniai kiekiai</div>
-          <div class="field-control" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <div>{{ form.metinis_kiekis_nuo }}</div>
-            <div>–</div>
-            <div>{{ form.metinis_kiekis_iki }}</div>
+          <div class="field-row">
+            <div class="field-label">{{ form.partiju_dydziai.label }}</div>
+            <div class="field-control">
+              {{ form.partiju_dydziai }}
+              {% if form.partiju_dydziai.errors %}
+              <div class="field-errors">{{ form.partiju_dydziai.errors|striptags }}</div>
+              {% endif %}
+            </div>
           </div>
-        </div>
-        {% if form.metinis_kiekis_nuo.errors or form.metinis_kiekis_iki.errors %}
+
+          <div class="field-row">
+            <div class="field-label">Metiniai kiekiai</div>
+            <div class="field-control" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <div>{{ form.metinis_kiekis_nuo }}</div>
+              <div>–</div>
+              <div>{{ form.metinis_kiekis_iki }}</div>
+            </div>
+          </div>
+          {% if form.metinis_kiekis_nuo.errors or form.metinis_kiekis_iki.errors %}
           <div class="field-errors">
             {{ form.metinis_kiekis_nuo.errors|striptags }} {{ form.metinis_kiekis_iki.errors|striptags }}
           </div>
-        {% endif %}
+          {% endif %}
 
-        <div class="field-row">
-          <div class="field-label">Projekto gyvavimo laikotarpis</div>
-          <div class="field-control" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <div>{{ form.projekto_gyvavimo_nuo }}</div>
-            <div>–</div>
-            <div>{{ form.projekto_gyvavimo_iki }}</div>
+          <div class="field-row">
+            <div class="field-label">Projekto gyvavimo laikotarpis</div>
+            <div class="field-control" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <div>{{ form.projekto_gyvavimo_nuo }}</div>
+              <div>–</div>
+              <div>{{ form.projekto_gyvavimo_iki }}</div>
+            </div>
           </div>
-        </div>
-        {% if form.projekto_gyvavimo_nuo.errors or form.projekto_gyvavimo_iki.errors %}
+          {% if form.projekto_gyvavimo_nuo.errors or form.projekto_gyvavimo_iki.errors %}
           <div class="field-errors">
             {{ form.projekto_gyvavimo_nuo.errors|striptags }} {{ form.projekto_gyvavimo_iki.errors|striptags }}
           </div>
-        {% endif %}
+          {% endif %}
 
-        <div id="paslauga-subgrid" class="paslauga-subgrid one-col">
+          <div id="paslauga-subgrid" class="paslauga-subgrid one-col">
 
-          <div id="ktl-subblock" class="subblock" style="display:none;">
-            <div style="font-weight:700; margin:2px 0 8px;">KTL</div>
+            <div id="ktl-subblock" class="subblock" style="display:none;">
+              <div style="font-weight:700; margin:2px 0 8px;">KTL</div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.ktl_kabinimo_budas.label }}</div>
-              <div class="field-control">
-                {{ form.ktl_kabinimo_budas }}
-                {% if form.ktl_kabinimo_budas.errors %}<div class="field-errors">{{ form.ktl_kabinimo_budas.errors|striptags }}</div>{% endif %}
-              </div>
-            </div>
-
-            <div class="field-row">
-              <div class="field-label">{{ form.ktl_kabinimas_reme_txt.label }}</div>
-              <div class="field-control">
-                {{ form.ktl_kabinimas_reme_txt }}
-                {% if form.ktl_kabinimas_reme_txt.errors %}<div class="field-errors">{{ form.ktl_kabinimas_reme_txt.errors|striptags }}</div>{% endif %}
-              </div>
-            </div>
-
-            <div class="field-row">
-              <div class="field-label">{{ form.ktl_detaliu_kiekis_reme.label }}</div>
-              <div class="field-control">
-                {{ form.ktl_detaliu_kiekis_reme }}
-                {% if form.ktl_detaliu_kiekis_reme.errors %}<div class="field-errors">{{ form.ktl_detaliu_kiekis_reme.errors|striptags }}</div>{% endif %}
-              </div>
-            </div>
-
-            <div class="field-row">
-              <div class="field-label">{{ form.ktl_faktinis_kiekis_reme.label }}</div>
-              <div class="field-control">
-                {{ form.ktl_faktinis_kiekis_reme }}
-                {% if form.ktl_faktinis_kiekis_reme.errors %}<div class="field-errors">{{ form.ktl_faktinis_kiekis_reme.errors|striptags }}</div>{% endif %}
-              </div>
-            </div>
-
-            <div class="field-row">
-              <div class="field-label">Detalių išdėstymas rėme</div>
-              <div class="field-control">
-                  <!-- 1 eilė: I / A / G -->
-                <div style="display:grid; grid-template-columns:repeat(3, minmax(90px, 1fr)); gap:10px;">
-                  <div>
-                    <div class="field-help" style="margin-bottom:4px;">I (ilgis)</div>
-                    {{ form.ktl_ilgis_mm }}
-                    {% if form.ktl_ilgis_mm.errors %}
-                    <div class="field-errors">{{ form.ktl_ilgis_mm.errors|striptags }}</div>
-                    {% endif %}
-                  </div>
-                  <div>
-                    <div class="field-help" style="margin-bottom:4px;">A (aukštis)</div>
-                    {{ form.ktl_aukstis_mm }}
-                    {% if form.ktl_aukstis_mm.errors %}
-                    <div class="field-errors">{{ form.ktl_aukstis_mm.errors|striptags }}</div>
-                    {% endif %}
-                  </div>
-                  <div>
-                    <div class="field-help" style="margin-bottom:4px;">G (gylis)</div>
-                    {{ form.ktl_gylis_mm }}
-                    {% if form.ktl_gylis_mm.errors %}
-                    <div class="field-errors">{{ form.ktl_gylis_mm.errors|striptags }}</div>
-                    {% endif %}
-                  </div>
+              <div class="field-row">
+                <div class="field-label">{{ form.ktl_kabinimo_budas.label }}</div>
+                <div class="field-control">
+                  {{ form.ktl_kabinimo_budas }}
+                  {% if form.ktl_kabinimo_budas.errors %}
+                  <div class="field-errors">{{ form.ktl_kabinimo_budas.errors|striptags }}</div>
+                  {% endif %}
                 </div>
+              </div>
+
+              <div class="field-row">
+                <div class="field-label">{{ form.ktl_kabinimas_reme_txt.label }}</div>
+                <div class="field-control">
+                  {{ form.ktl_kabinimas_reme_txt }}
+                  {% if form.ktl_kabinimas_reme_txt.errors %}
+                  <div class="field-errors">{{ form.ktl_kabinimas_reme_txt.errors|striptags }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="field-row">
+                <div class="field-label">{{ form.ktl_detaliu_kiekis_reme.label }}</div>
+                <div class="field-control">
+                  {{ form.ktl_detaliu_kiekis_reme }}
+                  {% if form.ktl_detaliu_kiekis_reme.errors %}
+                  <div class="field-errors">{{ form.ktl_detaliu_kiekis_reme.errors|striptags }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="field-row">
+                <div class="field-label">{{ form.ktl_faktinis_kiekis_reme.label }}</div>
+                <div class="field-control">
+                  {{ form.ktl_faktinis_kiekis_reme }}
+                  {% if form.ktl_faktinis_kiekis_reme.errors %}
+                  <div class="field-errors">{{ form.ktl_faktinis_kiekis_reme.errors|striptags }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="field-row">
+                <div class="field-label">Detalių išdėstymas rėme</div>
+                <div class="field-control">
+                  <!-- 1 eilė: I / A / G -->
+                  <div style="display:grid; grid-template-columns:repeat(3, minmax(90px, 1fr)); gap:10px;">
+                    <div>
+                      <div class="field-help" style="margin-bottom:4px;">I (ilgis)</div>
+                      {{ form.ktl_ilgis_mm }}
+                      {% if form.ktl_ilgis_mm.errors %}
+                      <div class="field-errors">{{ form.ktl_ilgis_mm.errors|striptags }}</div>
+                      {% endif %}
+                    </div>
+                    <div>
+                      <div class="field-help" style="margin-bottom:4px;">A (aukštis)</div>
+                      {{ form.ktl_aukstis_mm }}
+                      {% if form.ktl_aukstis_mm.errors %}
+                      <div class="field-errors">{{ form.ktl_aukstis_mm.errors|striptags }}</div>
+                      {% endif %}
+                    </div>
+                    <div>
+                      <div class="field-help" style="margin-bottom:4px;">G (gylis)</div>
+                      {{ form.ktl_gylis_mm }}
+                      {% if form.ktl_gylis_mm.errors %}
+                      <div class="field-errors">{{ form.ktl_gylis_mm.errors|striptags }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
 
                   <!-- 2 eilė: sandauga -->
-                <div style="display:grid; grid-template-columns:minmax(120px, 180px); gap:10px; margin-top:8px;">
-                  <div>
-                    <div class="field-help" style="margin-bottom:4px;">I×A×G</div>
-                    <input type="text" id="ktl-sandauga-preview" readonly
-                           value="{% if form.instance.ktl_matmenu_sandauga %}{{ form.instance.ktl_matmenu_sandauga|floatformat:0 }}{% endif %}"
-                           style="background:#f9fafb; color:#6b7280;">
+                  <div style="display:grid; grid-template-columns:minmax(120px, 180px); gap:10px; margin-top:8px;">
+                    <div>
+                      <div class="field-help" style="margin-bottom:4px;">I×A×G</div>
+                      <input type="text" id="ktl-sandauga-preview" readonly
+                             value="{% if form.instance.ktl_matmenu_sandauga %}{{ form.instance.ktl_matmenu_sandauga|floatformat:0 }}{% endif %}"
+                             style="background:#f9fafb; color:#6b7280;">
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.ktl_kabinimas_aprasymas.label }}</div>
-              <div class="field-control">
-                {{ form.ktl_kabinimas_aprasymas }}
-                {% if form.ktl_kabinimas_aprasymas.errors %}<div class="field-errors">{{ form.ktl_kabinimas_aprasymas.errors|striptags }}</div>{% endif %}
+              <div class="field-row">
+                <div class="field-label">{{ form.ktl_kabinimas_aprasymas.label }}</div>
+                <div class="field-control">
+                  {{ form.ktl_kabinimas_aprasymas }}
+                  {% if form.ktl_kabinimas_aprasymas.errors %}
+                  <div class="field-errors">{{ form.ktl_kabinimas_aprasymas.errors|striptags }}</div>
+                  {% endif %}
+                </div>
               </div>
-            </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.ktl_dangos_storis_um.label }}</div>
-              <div class="field-control">
-                {{ form.ktl_dangos_storis_um }}
-                {% if form.ktl_dangos_storis_um.errors %}<div class="field-errors">{{ form.ktl_dangos_storis_um.errors|striptags }}</div>{% endif %}
-                <div class="field-help">Galimi formatai: 12.5, 12-13, 3<>6, 33 +/- 5, >=12</div>
+              <div class="field-row">
+                <div class="field-label">{{ form.ktl_dangos_storis_um.label }}</div>
+                <div class="field-control">
+                  {{ form.ktl_dangos_storis_um }}
+                  {% if form.ktl_dangos_storis_um.errors %}
+                  <div class="field-errors">{{ form.ktl_dangos_storis_um.errors|striptags }}</div>
+                  {% endif %}
+                  <div class="field-help">Galimi formatai: 12.5, 12-13, 3<>6, 33 +/- 5, >=12</div>
+                </div>
               </div>
-            </div>
 
-            <div style="margin:10px 0 6px; font-weight:700;">Maskavimas (KTL)</div>
-            {{ maskavimo_ktl_formset.management_form }}
+              <div style="margin:10px 0 6px; font-weight:700;">Maskavimas (KTL)</div>
+              {{ maskavimo_ktl_formset.management_form }}
 
-            <div class="field-row" style="grid-template-columns:160px 1fr;">
-              <div class="field-label"></div>
-              <div class="field-control">
-                <button type="button" class="btn btn-secondary maskavimas-add" data-mask-prefix="maskavimas_ktl">Pridėti</button>
+              <div class="field-row" style="grid-template-columns:160px 1fr;">
+                <div class="field-label"></div>
+                <div class="field-control">
+                  <button type="button" class="btn btn-secondary maskavimas-add" data-mask-prefix="maskavimas_ktl">
+                    Pridėti
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div id="maskavimas_ktl-items" class="subblock" style="display:none;">
-              {% for f in maskavimo_ktl_formset %}
-                <div class="maskavimas-item" data-mask-prefix="maskavimas_ktl" style="border-bottom:1px solid #f3f4f6; padding:8px 0;">
+              <div id="maskavimas_ktl-items" class="subblock" style="display:none;">
+                {% for f in maskavimo_ktl_formset %}
+                <div class="maskavimas-item" data-mask-prefix="maskavimas_ktl"
+                     style="border-bottom:1px solid #f3f4f6; padding:8px 0;">
                   {{ f.id }}
                   <div style="display:none;">{{ f.DELETE }}</div>
 
@@ -231,7 +249,9 @@
                     <div class="field-label">{{ f.maskuote.label }}</div>
                     <div class="field-control">
                       {{ f.maskuote }}
-                      {% if f.maskuote.errors %}<div class="field-errors">{{ f.maskuote.errors|striptags }}</div>{% endif %}
+                      {% if f.maskuote.errors %}
+                      <div class="field-errors">{{ f.maskuote.errors|striptags }}</div>
+                      {% endif %}
                     </div>
                   </div>
 
@@ -239,7 +259,9 @@
                     <div class="field-label">{{ f.vietu_kiekis.label }}</div>
                     <div class="field-control">
                       {{ f.vietu_kiekis }}
-                      {% if f.vietu_kiekis.errors %}<div class="field-errors">{{ f.vietu_kiekis.errors|striptags }}</div>{% endif %}
+                      {% if f.vietu_kiekis.errors %}
+                      <div class="field-errors">{{ f.vietu_kiekis.errors|striptags }}</div>
+                      {% endif %}
                     </div>
                   </div>
 
@@ -247,164 +269,198 @@
                     <div class="field-label">{{ f.aprasymas.label }}</div>
                     <div class="field-control">
                       {{ f.aprasymas }}
-                      {% if f.aprasymas.errors %}<div class="field-errors">{{ f.aprasymas.errors|striptags }}</div>{% endif %}
+                      {% if f.aprasymas.errors %}
+                      <div class="field-errors">{{ f.aprasymas.errors|striptags }}</div>
+                      {% endif %}
                     </div>
                   </div>
 
                   <div style="display:flex; justify-content:flex-end;">
-                    <button type="button" class="btn btn-secondary maskavimas-remove" data-mask-prefix="maskavimas_ktl">Pašalinti</button>
+                    <button type="button" class="btn btn-secondary maskavimas-remove" data-mask-prefix="maskavimas_ktl">
+                      Pašalinti
+                    </button>
                   </div>
                 </div>
-              {% endfor %}
-            </div>
+                {% endfor %}
+              </div>
 
-            <template id="maskavimas_ktl-empty-form">
-              <div class="maskavimas-item" data-mask-prefix="maskavimas_ktl" style="border-bottom:1px solid #f3f4f6; padding:8px 0;">
-                {{ maskavimo_ktl_formset.empty_form.id }}
-                <div style="display:none;">{{ maskavimo_ktl_formset.empty_form.DELETE }}</div>
+              <template id="maskavimas_ktl-empty-form">
+                <div class="maskavimas-item" data-mask-prefix="maskavimas_ktl"
+                     style="border-bottom:1px solid #f3f4f6; padding:8px 0;">
+                  {{ maskavimo_ktl_formset.empty_form.id }}
+                  <div style="display:none;">{{ maskavimo_ktl_formset.empty_form.DELETE }}</div>
 
-                <div class="field-row">
-                  <div class="field-label">{{ maskavimo_ktl_formset.empty_form.maskuote.label }}</div>
-                  <div class="field-control">
-                    {{ maskavimo_ktl_formset.empty_form.maskuote }}
+                  <div class="field-row">
+                    <div class="field-label">{{ maskavimo_ktl_formset.empty_form.maskuote.label }}</div>
+                    <div class="field-control">
+                      {{ maskavimo_ktl_formset.empty_form.maskuote }}
+                    </div>
+                  </div>
+
+                  <div class="field-row">
+                    <div class="field-label">{{ maskavimo_ktl_formset.empty_form.vietu_kiekis.label }}</div>
+                    <div class="field-control">
+                      {{ maskavimo_ktl_formset.empty_form.vietu_kiekis }}
+                    </div>
+                  </div>
+
+                  <div class="field-row">
+                    <div class="field-label">{{ maskavimo_ktl_formset.empty_form.aprasymas.label }}</div>
+                    <div class="field-control">
+                      {{ maskavimo_ktl_formset.empty_form.aprasymas }}
+                    </div>
+                  </div>
+
+                  <div style="display:flex; justify-content:flex-end;">
+                    <button type="button" class="btn btn-secondary maskavimas-remove" data-mask-prefix="maskavimas_ktl">
+                      Pašalinti
+                    </button>
                   </div>
                 </div>
+              </template>
 
-                <div class="field-row">
-                  <div class="field-label">{{ maskavimo_ktl_formset.empty_form.vietu_kiekis.label }}</div>
-                  <div class="field-control">
-                    {{ maskavimo_ktl_formset.empty_form.vietu_kiekis }}
-                  </div>
-                </div>
-
-                <div class="field-row">
-                  <div class="field-label">{{ maskavimo_ktl_formset.empty_form.aprasymas.label }}</div>
-                  <div class="field-control">
-                    {{ maskavimo_ktl_formset.empty_form.aprasymas }}
-                  </div>
-                </div>
-
-                <div style="display:flex; justify-content:flex-end;">
-                  <button type="button" class="btn btn-secondary maskavimas-remove" data-mask-prefix="maskavimas_ktl">Pašalinti</button>
+              <div class="field-row">
+                <div class="field-label">{{ form.ktl_pastabos.label }}</div>
+                <div class="field-control">
+                  {{ form.ktl_pastabos }}
+                  {% if form.ktl_pastabos.errors %}
+                  <div class="field-errors">{{ form.ktl_pastabos.errors|striptags }}</div>
+                  {% endif %}
                 </div>
               </div>
-            </template>
-
-            <div class="field-row">
-              <div class="field-label">{{ form.ktl_pastabos.label }}</div>
-              <div class="field-control">
-                {{ form.ktl_pastabos }}
-                {% if form.ktl_pastabos.errors %}<div class="field-errors">{{ form.ktl_pastabos.errors|striptags }}</div>{% endif %}
-              </div>
-            </div>
-          </div>
-
-          <div id="miltai-subblock" class="subblock" style="display:none;">
-            <div style="font-weight:700; margin:2px 0 8px;">Miltai</div>
-
-            <div class="field-row">
-              <div class="field-label">{{ form.miltu_kodas.label }}</div>
-              <div class="field-control">
-                {{ form.miltu_kodas }}
-                {% if form.miltu_kodas.errors %}<div class="field-errors">{{ form.miltu_kodas.errors|striptags }}</div>{% endif %}
-              </div>
             </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.miltu_spalva.label }}</div>
-              <div class="field-control">
-                {{ form.miltu_spalva }}
-                {% if form.miltu_spalva.errors %}<div class="field-errors">{{ form.miltu_spalva.errors|striptags }}</div>{% endif %}
+            <div id="miltai-subblock" class="subblock" style="display:none;">
+              <div style="font-weight:700; margin:2px 0 8px;">Miltai</div>
+
+              <div class="field-row">
+                <div class="field-label">{{ form.miltu_kodas.label }}</div>
+                <div class="field-control">
+                  {{ form.miltu_kodas }}
+                  {% if form.miltu_kodas.errors %}
+                  <div class="field-errors">{{ form.miltu_kodas.errors|striptags }}</div>
+                  {% endif %}
+                </div>
               </div>
-            </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.miltu_tiekejas.label }}</div>
-              <div class="field-control">
-                {{ form.miltu_tiekejas }}
-                {% if form.miltu_tiekejas.errors %}<div class="field-errors">{{ form.miltu_tiekejas.errors|striptags }}</div>{% endif %}
+              <div class="field-row">
+                <div class="field-label">{{ form.miltu_spalva.label }}</div>
+                <div class="field-control">
+                  {{ form.miltu_spalva }}
+                  {% if form.miltu_spalva.errors %}
+                  <div class="field-errors">{{ form.miltu_spalva.errors|striptags }}</div>
+                  {% endif %}
+                </div>
               </div>
-            </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.miltu_blizgumas.label }}</div>
-              <div class="field-control">
-                {{ form.miltu_blizgumas }}
-                {% if form.miltu_blizgumas.errors %}<div class="field-errors">{{ form.miltu_blizgumas.errors|striptags }}</div>{% endif %}
+              <div class="field-row">
+                <div class="field-label">{{ form.miltu_tiekejas.label }}</div>
+                <div class="field-control">
+                  {{ form.miltu_tiekejas }}
+                  {% if form.miltu_tiekejas.errors %}
+                  <div class="field-errors">{{ form.miltu_tiekejas.errors|striptags }}</div>
+                  {% endif %}
+                </div>
               </div>
-            </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.miltu_kaina.label }}</div>
-              <div class="field-control">
-                {{ form.miltu_kaina }}
-                {% if form.miltu_kaina.errors %}<div class="field-errors">{{ form.miltu_kaina.errors|striptags }}</div>{% endif %}
-                <div class="field-help">€ (4 skaičiai po kablelio).</div>
+              <div class="field-row">
+                <div class="field-label">{{ form.miltu_blizgumas.label }}</div>
+                <div class="field-control">
+                  {{ form.miltu_blizgumas }}
+                  {% if form.miltu_blizgumas.errors %}
+                  <div class="field-errors">{{ form.miltu_blizgumas.errors|striptags }}</div>
+                  {% endif %}
+                </div>
               </div>
-            </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.miltai_dangos_storis_um.label }}</div>
-              <div class="field-control">
-                {{ form.miltai_dangos_storis_um }}
-                {% if form.miltai_dangos_storis_um.errors %}<div class="field-errors">{{ form.miltai_dangos_storis_um.errors|striptags }}</div>{% endif %}
-                <div class="field-help">Galimi formatai: 12.5, 12-13, 3<>6, 33 +/- 5, >=12</div>
+              <div class="field-row">
+                <div class="field-label">{{ form.miltu_kaina.label }}</div>
+                <div class="field-control">
+                  {{ form.miltu_kaina }}
+                  {% if form.miltu_kaina.errors %}
+                  <div class="field-errors">{{ form.miltu_kaina.errors|striptags }}</div>
+                  {% endif %}
+                  <div class="field-help">€ (4 skaičiai po kablelio).</div>
+                </div>
               </div>
-            </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.miltai_kiekis_per_valanda.label }}</div>
-              <div class="field-control">
-                {{ form.miltai_kiekis_per_valanda }}
-                {% if form.miltai_kiekis_per_valanda.errors %}<div class="field-errors">{{ form.miltai_kiekis_per_valanda.errors|striptags }}</div>{% endif %}
+              <div class="field-row">
+                <div class="field-label">{{ form.miltai_dangos_storis_um.label }}</div>
+                <div class="field-control">
+                  {{ form.miltai_dangos_storis_um }}
+                  {% if form.miltai_dangos_storis_um.errors %}
+                  <div class="field-errors">{{ form.miltai_dangos_storis_um.errors|striptags }}</div>
+                  {% endif %}
+                  <div class="field-help">Galimi formatai: 12.5, 12-13, 3<>6, 33 +/- 5, >=12</div>
+                </div>
               </div>
-            </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.miltai_faktinis_per_valanda.label }}</div>
-              <div class="field-control">
-                {{ form.miltai_faktinis_per_valanda }}
-                {% if form.miltai_faktinis_per_valanda.errors %}<div class="field-errors">{{ form.miltai_faktinis_per_valanda.errors|striptags }}</div>{% endif %}
+              <div class="field-row">
+                <div class="field-label">{{ form.miltai_kiekis_per_valanda.label }}</div>
+                <div class="field-control">
+                  {{ form.miltai_kiekis_per_valanda }}
+                  {% if form.miltai_kiekis_per_valanda.errors %}
+                  <div class="field-errors">{{ form.miltai_kiekis_per_valanda.errors|striptags }}</div>
+                  {% endif %}
+                </div>
               </div>
-            </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.miltai_detaliu_kiekis_reme.label }}</div>
-              <div class="field-control">
-                {{ form.miltai_detaliu_kiekis_reme }}
-                {% if form.miltai_detaliu_kiekis_reme.errors %}<div class="field-errors">{{ form.miltai_detaliu_kiekis_reme.errors|striptags }}</div>{% endif %}
+              <div class="field-row">
+                <div class="field-label">{{ form.miltai_faktinis_per_valanda.label }}</div>
+                <div class="field-control">
+                  {{ form.miltai_faktinis_per_valanda }}
+                  {% if form.miltai_faktinis_per_valanda.errors %}
+                  <div class="field-errors">{{ form.miltai_faktinis_per_valanda.errors|striptags }}</div>
+                  {% endif %}
+                </div>
               </div>
-            </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.miltai_faktinis_kiekis_reme.label }}</div>
-              <div class="field-control">
-                {{ form.miltai_faktinis_kiekis_reme }}
-                {% if form.miltai_faktinis_kiekis_reme.errors %}<div class="field-errors">{{ form.miltai_faktinis_kiekis_reme.errors|striptags }}</div>{% endif %}
+              <div class="field-row">
+                <div class="field-label">{{ form.miltai_detaliu_kiekis_reme.label }}</div>
+                <div class="field-control">
+                  {{ form.miltai_detaliu_kiekis_reme }}
+                  {% if form.miltai_detaliu_kiekis_reme.errors %}
+                  <div class="field-errors">{{ form.miltai_detaliu_kiekis_reme.errors|striptags }}</div>
+                  {% endif %}
+                </div>
               </div>
-            </div>
 
-            <div class="field-row">
-              <div class="field-label">{{ form.miltai_kabinimas_aprasymas.label }}</div>
-              <div class="field-control">
-                {{ form.miltai_kabinimas_aprasymas }}
-                {% if form.miltai_kabinimas_aprasymas.errors %}<div class="field-errors">{{ form.miltai_kabinimas_aprasymas.errors|striptags }}</div>{% endif %}
+              <div class="field-row">
+                <div class="field-label">{{ form.miltai_faktinis_kiekis_reme.label }}</div>
+                <div class="field-control">
+                  {{ form.miltai_faktinis_kiekis_reme }}
+                  {% if form.miltai_faktinis_kiekis_reme.errors %}
+                  <div class="field-errors">{{ form.miltai_faktinis_kiekis_reme.errors|striptags }}</div>
+                  {% endif %}
+                </div>
               </div>
-            </div>
 
-            <div style="margin:10px 0 6px; font-weight:700;">Maskavimas (Miltai)</div>
-            {{ maskavimo_miltai_formset.management_form }}
-
-            <div class="field-row" style="grid-template-columns:160px 1fr;">
-              <div class="field-label"></div>
-              <div class="field-control">
-                <button type="button" class="btn btn-secondary maskavimas-add" data-mask-prefix="maskavimas_miltai">Pridėti</button>
+              <div class="field-row">
+                <div class="field-label">{{ form.miltai_kabinimas_aprasymas.label }}</div>
+                <div class="field-control">
+                  {{ form.miltai_kabinimas_aprasymas }}
+                  {% if form.miltai_kabinimas_aprasymas.errors %}
+                  <div class="field-errors">{{ form.miltai_kabinimas_aprasymas.errors|striptags }}</div>
+                  {% endif %}
+                </div>
               </div>
-            </div>
 
-            <div id="maskavimas_miltai-items" class="subblock" style="display:none;">
-              {% for f in maskavimo_miltai_formset %}
-                <div class="maskavimas-item" data-mask-prefix="maskavimas_miltai" style="border-bottom:1px solid #f3f4f6; padding:8px 0;">
+              <div style="margin:10px 0 6px; font-weight:700;">Maskavimas (Miltai)</div>
+              {{ maskavimo_miltai_formset.management_form }}
+
+              <div class="field-row" style="grid-template-columns:160px 1fr;">
+                <div class="field-label"></div>
+                <div class="field-control">
+                  <button type="button" class="btn btn-secondary maskavimas-add" data-mask-prefix="maskavimas_miltai">
+                    Pridėti
+                  </button>
+                </div>
+              </div>
+
+              <div id="maskavimas_miltai-items" class="subblock" style="display:none;">
+                {% for f in maskavimo_miltai_formset %}
+                <div class="maskavimas-item" data-mask-prefix="maskavimas_miltai"
+                     style="border-bottom:1px solid #f3f4f6; padding:8px 0;">
                   {{ f.id }}
                   <div style="display:none;">{{ f.DELETE }}</div>
 
@@ -412,7 +468,9 @@
                     <div class="field-label">{{ f.maskuote.label }}</div>
                     <div class="field-control">
                       {{ f.maskuote }}
-                      {% if f.maskuote.errors %}<div class="field-errors">{{ f.maskuote.errors|striptags }}</div>{% endif %}
+                      {% if f.maskuote.errors %}
+                      <div class="field-errors">{{ f.maskuote.errors|striptags }}</div>
+                      {% endif %}
                     </div>
                   </div>
 
@@ -420,7 +478,9 @@
                     <div class="field-label">{{ f.vietu_kiekis.label }}</div>
                     <div class="field-control">
                       {{ f.vietu_kiekis }}
-                      {% if f.vietu_kiekis.errors %}<div class="field-errors">{{ f.vietu_kiekis.errors|striptags }}</div>{% endif %}
+                      {% if f.vietu_kiekis.errors %}
+                      <div class="field-errors">{{ f.vietu_kiekis.errors|striptags }}</div>
+                      {% endif %}
                     </div>
                   </div>
 
@@ -428,169 +488,120 @@
                     <div class="field-label">{{ f.aprasymas.label }}</div>
                     <div class="field-control">
                       {{ f.aprasymas }}
-                      {% if f.aprasymas.errors %}<div class="field-errors">{{ f.aprasymas.errors|striptags }}</div>{% endif %}
+                      {% if f.aprasymas.errors %}
+                      <div class="field-errors">{{ f.aprasymas.errors|striptags }}</div>
+                      {% endif %}
                     </div>
                   </div>
 
                   <div style="display:flex; justify-content:flex-end;">
-                    <button type="button" class="btn btn-secondary maskavimas-remove" data-mask-prefix="maskavimas_miltai">Pašalinti</button>
+                    <button type="button" class="btn btn-secondary maskavimas-remove"
+                            data-mask-prefix="maskavimas_miltai">Pašalinti
+                    </button>
                   </div>
                 </div>
-              {% endfor %}
-            </div>
+                {% endfor %}
+              </div>
 
-            <template id="maskavimas_miltai-empty-form">
-              <div class="maskavimas-item" data-mask-prefix="maskavimas_miltai" style="border-bottom:1px solid #f3f4f6; padding:8px 0;">
-                {{ maskavimo_miltai_formset.empty_form.id }}
-                <div style="display:none;">{{ maskavimo_miltai_formset.empty_form.DELETE }}</div>
+              <template id="maskavimas_miltai-empty-form">
+                <div class="maskavimas-item" data-mask-prefix="maskavimas_miltai"
+                     style="border-bottom:1px solid #f3f4f6; padding:8px 0;">
+                  {{ maskavimo_miltai_formset.empty_form.id }}
+                  <div style="display:none;">{{ maskavimo_miltai_formset.empty_form.DELETE }}</div>
 
-                <div class="field-row">
-                  <div class="field-label">{{ maskavimo_miltai_formset.empty_form.maskuote.label }}</div>
-                  <div class="field-control">
-                    {{ maskavimo_miltai_formset.empty_form.maskuote }}
+                  <div class="field-row">
+                    <div class="field-label">{{ maskavimo_miltai_formset.empty_form.maskuote.label }}</div>
+                    <div class="field-control">
+                      {{ maskavimo_miltai_formset.empty_form.maskuote }}
+                    </div>
+                  </div>
+
+                  <div class="field-row">
+                    <div class="field-label">{{ maskavimo_miltai_formset.empty_form.vietu_kiekis.label }}</div>
+                    <div class="field-control">
+                      {{ maskavimo_miltai_formset.empty_form.vietu_kiekis }}
+                    </div>
+                  </div>
+
+                  <div class="field-row">
+                    <div class="field-label">{{ maskavimo_miltai_formset.empty_form.aprasymas.label }}</div>
+                    <div class="field-control">
+                      {{ maskavimo_miltai_formset.empty_form.aprasymas }}
+                    </div>
+                  </div>
+
+                  <div style="display:flex; justify-content:flex-end;">
+                    <button type="button" class="btn btn-secondary maskavimas-remove"
+                            data-mask-prefix="maskavimas_miltai">Pašalinti
+                    </button>
                   </div>
                 </div>
+              </template>
 
-                <div class="field-row">
-                  <div class="field-label">{{ maskavimo_miltai_formset.empty_form.vietu_kiekis.label }}</div>
-                  <div class="field-control">
-                    {{ maskavimo_miltai_formset.empty_form.vietu_kiekis }}
-                  </div>
-                </div>
-
-                <div class="field-row">
-                  <div class="field-label">{{ maskavimo_miltai_formset.empty_form.aprasymas.label }}</div>
-                  <div class="field-control">
-                    {{ maskavimo_miltai_formset.empty_form.aprasymas }}
-                  </div>
-                </div>
-
-                <div style="display:flex; justify-content:flex-end;">
-                  <button type="button" class="btn btn-secondary maskavimas-remove" data-mask-prefix="maskavimas_miltai">Pašalinti</button>
+              <div class="field-row">
+                <div class="field-label">{{ form.miltai_pastabos.label }}</div>
+                <div class="field-control">
+                  {{ form.miltai_pastabos }}
+                  {% if form.miltai_pastabos.errors %}
+                  <div class="field-errors">{{ form.miltai_pastabos.errors|striptags }}</div>
+                  {% endif %}
                 </div>
               </div>
-            </template>
-
-            <div class="field-row">
-              <div class="field-label">{{ form.miltai_pastabos.label }}</div>
-              <div class="field-control">
-                {{ form.miltai_pastabos }}
-                {% if form.miltai_pastabos.errors %}<div class="field-errors">{{ form.miltai_pastabos.errors|striptags }}</div>{% endif %}
-              </div>
             </div>
           </div>
-        </div>
 
-        <div class="field-row" style="margin-top:10px;">
-          <div class="field-label">{{ form.paslaugu_pastabos.label }}</div>
-          <div class="field-control">
-            {{ form.paslaugu_pastabos }}
-            {% if form.paslaugu_pastabos.errors %}<div class="field-errors">{{ form.paslaugu_pastabos.errors|striptags }}</div>{% endif %}
+          <div class="field-row" style="margin-top:10px;">
+            <div class="field-label">{{ form.paslaugu_pastabos.label }}</div>
+            <div class="field-control">
+              {{ form.paslaugu_pastabos }}
+              {% if form.paslaugu_pastabos.errors %}
+              <div class="field-errors">{{ form.paslaugu_pastabos.errors|striptags }}</div>
+              {% endif %}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="poz-card">
-        <h2 class="poz-card-title">Terminai</h2>
-        <div class="field-row">
-          <div class="field-label">{{ form.atlikimo_terminas.label }}</div>
-          <div class="field-control">
-            {{ form.atlikimo_terminas }}
-            {% if form.atlikimo_terminas.errors %}<div class="field-errors">{{ form.atlikimo_terminas.errors|striptags }}</div>{% endif %}
-          </div>
-        </div>
-      </section>
+        {% include "pozicijos/components/form_section_terminai.html" %}
 
-      <section class="poz-card">
-        <h2 class="poz-card-title">Testai / kokybė</h2>
-        <div class="field-row">
-          <div class="field-label">{{ form.testai_kokybe.label }}</div>
-          <div class="field-control">
-            {{ form.testai_kokybe }}
-            {% if form.testai_kokybe.errors %}<div class="field-errors">{{ form.testai_kokybe.errors|striptags }}</div>{% endif %}
-          </div>
-        </div>
-      </section>
+        {% include "pozicijos/components/form_section_testai_kokybe.html" %}
 
-      <section class="poz-card">
-        <h2 class="poz-card-title">Pakavimas</h2>
+        {% include "pozicijos/components/form_section_pakavimas.html" %}
 
-        <div class="field-row">
-          <div class="field-label">{{ form.pakavimo_tipas.label }}</div>
-          <div class="field-control">
-            {{ form.pakavimo_tipas }}
-            {% if form.pakavimo_tipas.errors %}<div class="field-errors">{{ form.pakavimo_tipas.errors|striptags }}</div>{% endif %}
-          </div>
-        </div>
+        {% include "pozicijos/components/form_section_papildomos_paslaugos.html" %}
 
-        <div class="field-row">
-          <div class="field-label">{{ form.pakavimas.label }}</div>
-          <div class="field-control">
-            {{ form.pakavimas }}
-            {% if form.pakavimas.errors %}<div class="field-errors">{{ form.pakavimas.errors|striptags }}</div>{% endif %}
-          </div>
-        </div>
-
-        <div class="field-row">
-          <div class="field-label">{{ form.instrukcija.label }}</div>
-          <div class="field-control">
-            {{ form.instrukcija }}
-            {% if form.instrukcija.errors %}<div class="field-errors">{{ form.instrukcija.errors|striptags }}</div>{% endif %}
-          </div>
-        </div>
-      </section>
-
-      <section class="poz-card">
-        <h2 class="poz-card-title">Papildomos paslaugos</h2>
-
-        <div class="field-row">
-          <div class="field-label">{{ form.papildomos_paslaugos.label }}</div>
-          <div class="field-control">
-            {{ form.papildomos_paslaugos }}
-            {% if form.papildomos_paslaugos.errors %}<div class="field-errors">{{ form.papildomos_paslaugos.errors|striptags }}</div>{% endif %}
-            <div class="field-help">Pasirinkus „Yra“ – atsiras aprašymo laukas.</div>
-          </div>
-        </div>
-
-        <div class="field-row" id="papildomos-paslaugos-aprasymas-row" style="display:none;">
-          <div class="field-label">{{ form.papildomos_paslaugos_aprasymas.label }}</div>
-          <div class="field-control">
-            {{ form.papildomos_paslaugos_aprasymas }}
-            {% if form.papildomos_paslaugos_aprasymas.errors %}<div class="field-errors">{{ form.papildomos_paslaugos_aprasymas.errors|striptags }}</div>{% endif %}
-          </div>
-        </div>
-      </section>
-
-      <section class="poz-card poz-card--full">
-        <h2 class="poz-card-title">Kainos</h2>
-        <div class="field-help" id="kaina-eur-preview" style="margin:-6px 0 10px;">Pagrindinė kaina (preview): <strong>—</strong></div>
-        {% if pozicija and pozicija.pk %}
+        <section class="poz-card poz-card--full">
+          <h2 class="poz-card-title">Kainos</h2>
+          <div class="field-help" id="kaina-eur-preview" style="margin:-6px 0 10px;">Pagrindinė kaina (preview):
+            <strong>—</strong></div>
+          {% if pozicija and pozicija.pk %}
           {% include "pozicijos/components/kainos_formset.html" with formset=kainos_formset show_history_links=1 %}
-        {% else %}
+          {% else %}
           {% include "pozicijos/components/kainos_formset.html" with formset=kainos_formset %}
-        {% endif %}
-      </section>
+          {% endif %}
+        </section>
 
-      <section class="poz-card poz-card--full">
-        <h2 class="poz-card-title">Pastabos</h2>
-        <div class="field-row">
-          <div class="field-label">{{ form.pastabos.label }}</div>
-          <div class="field-control">
-            {{ form.pastabos }}
-            {% if form.pastabos.errors %}<div class="field-errors">{{ form.pastabos.errors|striptags }}</div>{% endif %}
+        <section class="poz-card poz-card--full">
+          <h2 class="poz-card-title">Pastabos</h2>
+          <div class="field-row">
+            <div class="field-label">{{ form.pastabos.label }}</div>
+            <div class="field-control">
+              {{ form.pastabos }}
+              {% if form.pastabos.errors %}
+              <div class="field-errors">{{ form.pastabos.errors|striptags }}</div>
+              {% endif %}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-    </div>
+      </div>
 
-    <div class="poz-actions" style="margin-top:12px;">
-      <button type="submit" class="btn btn-primary">Išsaugoti</button>
-    </div>
+      <div class="poz-actions" style="margin-top:12px;">
+        <button type="submit" class="btn btn-primary">Išsaugoti</button>
+      </div>
 
-  </form>
+    </form>
 
-</div>
+  </div>
 </div>
 {% endblock %}
 

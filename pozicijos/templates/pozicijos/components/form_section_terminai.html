@@ -1,0 +1,14 @@
+{# pozicijos/templates/pozicijos/components/form_section_terminai.html #}
+
+<section class="poz-card">
+    <h2 class="poz-card-title">Terminai</h2>
+    <div class="field-row">
+        <div class="field-label">{{ form.atlikimo_terminas.label }}</div>
+        <div class="field-control">
+            {{ form.atlikimo_terminas }}
+            {% if form.atlikimo_terminas.errors %}
+            <div class="field-errors">{{ form.atlikimo_terminas.errors|striptags }}</div>
+            {% endif %}
+        </div>
+    </div>
+</section>

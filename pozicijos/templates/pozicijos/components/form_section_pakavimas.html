@@ -1,0 +1,35 @@
+{# pozicijos/templates/pozicijos/components/form_section_pakavimas.html #}
+
+<section class="poz-card">
+    <h2 class="poz-card-title">Pakavimas</h2>
+
+    <div class="field-row">
+        <div class="field-label">{{ form.pakavimo_tipas.label }}</div>
+        <div class="field-control">
+            {{ form.pakavimo_tipas }}
+            {% if form.pakavimo_tipas.errors %}
+            <div class="field-errors">{{ form.pakavimo_tipas.errors|striptags }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="field-row">
+        <div class="field-label">{{ form.pakavimas.label }}</div>
+        <div class="field-control">
+            {{ form.pakavimas }}
+            {% if form.pakavimas.errors %}
+            <div class="field-errors">{{ form.pakavimas.errors|striptags }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="field-row">
+        <div class="field-label">{{ form.instrukcija.label }}</div>
+        <div class="field-control">
+            {{ form.instrukcija }}
+            {% if form.instrukcija.errors %}
+            <div class="field-errors">{{ form.instrukcija.errors|striptags }}</div>
+            {% endif %}
+        </div>
+    </div>
+</section>
