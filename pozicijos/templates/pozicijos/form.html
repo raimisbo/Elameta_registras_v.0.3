@@ -580,18 +580,7 @@
           {% endif %}
         </section>
 
-        <section class="poz-card poz-card--full">
-          <h2 class="poz-card-title">Pastabos</h2>
-          <div class="field-row">
-            <div class="field-label">{{ form.pastabos.label }}</div>
-            <div class="field-control">
-              {{ form.pastabos }}
-              {% if form.pastabos.errors %}
-              <div class="field-errors">{{ form.pastabos.errors|striptags }}</div>
-              {% endif %}
-            </div>
-          </div>
-        </section>
+        {% include "pozicijos/components/form_section_pastabos.html" %}
 
       </div>
 
