@@ -11,6 +11,7 @@ window.addMetaloStorisRow = function() {
   if (!items || !tpl) return false;
   items.insertAdjacentHTML("beforeend", tpl.innerHTML);
 
+  // bindinam remove tik naujai įdėtoms (su dataset.bound apsauga)
   items.querySelectorAll(".metalo-storis-remove").forEach(function(btn){
     if (btn.dataset.bound === "1") return;
     btn.dataset.bound = "1";
@@ -22,20 +23,6 @@ window.addMetaloStorisRow = function() {
   });
   return false;
 };
-
-document.addEventListener("DOMContentLoaded", function() {
-  var items = document.getElementById("metalo-storis-items");
-  if (!items) return;
-  items.querySelectorAll(".metalo-storis-remove").forEach(function(btn){
-    if (btn.dataset.bound === "1") return;
-    btn.dataset.bound = "1";
-    btn.addEventListener("click", function(e){
-      e.preventDefault();
-      var row = btn.closest(".metalo-storis-item");
-      if (row) row.remove();
-    });
-  });
-});
 </script>
 
 <script>
