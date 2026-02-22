@@ -569,24 +569,13 @@
 
         {% include "pozicijos/components/form_section_papildomos_paslaugos.html" %}
 
-        <section class="poz-card poz-card--full">
-          <h2 class="poz-card-title">Kainos</h2>
-          <div class="field-help" id="kaina-eur-preview" style="margin:-6px 0 10px;">Pagrindinė kaina (preview):
-            <strong>—</strong></div>
-          {% if pozicija and pozicija.pk %}
-          {% include "pozicijos/components/kainos_formset.html" with formset=kainos_formset show_history_links=1 %}
-          {% else %}
-          {% include "pozicijos/components/kainos_formset.html" with formset=kainos_formset %}
-          {% endif %}
-        </section>
+        {% include "pozicijos/components/form_section_kainos.html" %}
 
         {% include "pozicijos/components/form_section_pastabos.html" %}
 
       </div>
 
-      <div class="poz-actions" style="margin-top:12px;">
-        <button type="submit" class="btn btn-primary">Išsaugoti</button>
-      </div>
+      {% include "pozicijos/components/form_actions.html" %}
 
     </form>
 
