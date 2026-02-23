@@ -2,6 +2,7 @@
 {% load attr %}
 {% load dict_get %}
 {% load json_utils %}
+{% load static %}
 
 {% block title %}Pozicijų sąrašas{% endblock %}
 
@@ -153,7 +154,7 @@
 
 <div class="top-wrap">
   <div class="logo-block">
-    <img src="{{ MEDIA_URL }}logo.png" alt="Logo">
+    <img src="{% static 'pozicijos/img/logo.png' %}" alt="Logo">
   </div>
   <div class="title-block">
     <h1>Detalių registras</h1>
