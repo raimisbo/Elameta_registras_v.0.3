@@ -128,15 +128,13 @@ FIELD_LABELS = {
         "pakavimas": "Pakavimas",
         "pakavimo_tipas": "Pakavimo tipas",
         "atlikimo_terminas": "Atlikimo terminas",
-        "atlikimo_terminas_darbo_dienos": "Atlikimo terminas (darbo dienos)",
         "testai_kokybe": "Testai / kokybė",
         "papildomos_paslaugos": "Papildomos paslaugos",
         "papildomos_paslaugos_aprasymas": "Papildomų paslaugų aprašymas",
-        "paslauga_ktl": "Papildoma paslauga: KTL",
-        "paslauga_miltai": "Papildoma paslauga: Miltai",
-        "paslauga_paruosimas": "Papildoma paslauga: Paruošimas",
+        "paslauga_ktl": "KTL",
+        "paslauga_miltai": "Miltai",
+        "paslauga_paruosimas": "Paruošimas",
         "paslaugu_pastabos": "Paslaugų pastabos",
-        "pastabos": "Pastabos",
     },
     "en": {
         "klientas": "Customer",
@@ -162,29 +160,19 @@ FIELD_LABELS = {
         "pakavimas": "Packaging",
         "pakavimo_tipas": "Packaging type",
         "atlikimo_terminas": "Lead time",
-        "atlikimo_terminas_darbo_dienos": "Lead time (working days)",
         "testai_kokybe": "Tests / quality",
         "papildomos_paslaugos": "Additional services",
         "papildomos_paslaugos_aprasymas": "Additional services description",
-        "paslauga_ktl": "Extra service: KTL",
-        "paslauga_miltai": "Extra service: Powder coating",
-        "paslauga_paruosimas": "Extra service: Preparation",
+        "paslauga_ktl": "KTL",
+        "paslauga_miltai": "Powder",
+        "paslauga_paruosimas": "Preparation",
         "paslaugu_pastabos": "Service notes",
-        "pastabos": "Notes",
     },
 }
 
 VALUE_TRANSLATIONS_EN = {
     "Yra": "Yes",
     "Nėra": "No",
-    "Taip": "Yes",
-    "Ne": "No",
-    "Girliandos": "Garlands",
-    "Traversas": "Traverse",
-    "Specialus": "Special",
-    "Matinis": "Matte",
-    "Blizgus": "Glossy",
-    "Pusiau blizgus": "Semi-gloss",
 }
 
 
@@ -402,17 +390,39 @@ def _resolve_preview_path(b) -> str | None:
 
 
 def _prepare_image_for_pdf(img_path: str | None) -> tuple[str | None, str | None]:
+    """
+    Grąžina kelią, kurį ReportLab gali patikimai nupiešti.
+    Jei reikia – konvertuoja į laikiną PNG.
+
+    Returns:
+      (draw_path, temp_path_to_cleanup)
+    """
     if not img_path or not os.path.exists(img_path):
         return None, None
 
     ext = os.path.splitext(img_path)[1].lower()
-    if ext not in {".tif", ".tiff"}:
-        return img_path, None
+    force_convert_exts = {".tif", ".tiff", ".webp"}
+
+    if ext not in force_convert_exts:
+        try:
+            with Image.open(img_path) as im:
+                im.verify()
+            return img_path, None
+        except Exception:
+            pass
 
     try:
         with Image.open(img_path) as im:
-            if im.mode not in ("RGB", "L"):
+            if im.mode in ("RGBA", "LA", "P"):
+                try:
+                    rgba = im.convert("RGBA")
+                    bg = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+                    im = Image.alpha_composite(bg, rgba).convert("RGB")
+                except Exception:
+                    im = im.convert("RGB")
+            elif im.mode not in ("RGB", "L"):
                 im = im.convert("RGB")
+
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
             tmp_path = tmp.name
             tmp.close()
@@ -422,32 +432,109 @@ def _prepare_image_for_pdf(img_path: str | None) -> tuple[str | None, str | None
         return None, None
 
 
+def _drawing_kind(b) -> str:
+    """Grąžina trumpą tipą placeholderiui: PDF / 3D / FILE."""
+    try:
+        f = getattr(b, "failas", None) or getattr(b, "file", None)
+        p = getattr(f, "path", None) or ""
+        u = getattr(f, "url", None) or ""
+        candidate = p or u or str(b)
+        ext = os.path.splitext(str(candidate))[1].lower()
+    except Exception:
+        ext = ""
+
+    if ext == ".pdf":
+        return "PDF"
+    if ext in {".stp", ".step", ".igs", ".iges", ".ifc"}:
+        return "3D"
+    return "FILE"
+
+
 # ============================================================================
 # Fonts
 # ============================================================================
 
 def _register_fonts() -> tuple[str, str]:
+    """
+    Register Unicode-capable fonts for ReportLab so Lithuanian characters render correctly.
+
+    Priority:
+      1) settings.OFFER_FONT_REGULAR / settings.OFFER_FONT_BOLD (if provided)
+      2) Repo-tracked static fonts: BASE_DIR/pozicijos/static/pozicijos/fonts  <-- MAIN
+      3) Any *.ttf in BASE_DIR/media/fonts (legacy fallback)
+      4) Common system fonts on Linux (DejaVu / Noto)
+      5) Fallback to Helvetica (may show □ for LT letters)
+    """
+    def _pick_from_dir(dir_path: str) -> tuple[str | None, str | None]:
+        if not dir_path or not os.path.isdir(dir_path):
+            return None, None
+        files = sorted(
+            [
+                os.path.join(dir_path, f)
+                for f in os.listdir(dir_path)
+                if f.lower().endswith(".ttf")
+            ]
+        )
+        if not files:
+            return None, None
+
+        reg = (
+            next((f for f in files if "noto" in os.path.basename(f).lower() and "bold" not in os.path.basename(f).lower()), None)
+            or next((f for f in files if "regular" in os.path.basename(f).lower()), None)
+            or next((f for f in files if "dejavu" in os.path.basename(f).lower() and "bold" not in os.path.basename(f).lower()), None)
+            or files[0]
+        )
+        bold = (
+            next((f for f in files if "noto" in os.path.basename(f).lower() and "bold" in os.path.basename(f).lower()), None)
+            or next((f for f in files if "bold" in os.path.basename(f).lower()), None)
+            or next((f for f in files if "dejavu" in os.path.basename(f).lower() and "bold" in os.path.basename(f).lower()), None)
+            or reg
+        )
+        return reg, bold
+
     candidates_regular = [
         getattr(settings, "OFFER_FONT_REGULAR", None),
-        os.path.join(settings.BASE_DIR, "fonts", "NotoSans-Regular.ttf"),
-        os.path.join(settings.BASE_DIR, "media", "fonts", "NotoSans-Regular.ttf"),
-        os.path.join(settings.BASE_DIR, "static", "fonts", "NotoSans-Regular.ttf"),
+        getattr(settings, "PDF_FONT_REGULAR", None),
     ]
     candidates_bold = [
         getattr(settings, "OFFER_FONT_BOLD", None),
-        os.path.join(settings.BASE_DIR, "fonts", "NotoSans-Bold.ttf"),
-        os.path.join(settings.BASE_DIR, "media", "fonts", "NotoSans-Bold.ttf"),
-        os.path.join(settings.BASE_DIR, "static", "fonts", "NotoSans-Bold.ttf"),
+        getattr(settings, "PDF_FONT_BOLD", None),
     ]
 
-    reg = next((p for p in candidates_regular if p and os.path.exists(p)), None)
-    bold = next((p for p in candidates_bold if p and os.path.exists(p)), None)
+    reg = next((str(p) for p in candidates_regular if p and os.path.exists(str(p))), None)
+    bold = next((str(p) for p in candidates_bold if p and os.path.exists(str(p))), None)
+
+    if not reg:
+        r1, b1 = _pick_from_dir(os.path.join(settings.BASE_DIR, "pozicijos", "static", "pozicijos", "fonts"))
+        reg = reg or r1
+        bold = bold or b1
+
+    if not reg:
+        r2, b2 = _pick_from_dir(os.path.join(settings.BASE_DIR, "media", "fonts"))
+        reg = reg or r2
+        bold = bold or b2
+
+    if not reg:
+        more_reg = [
+            os.path.join(settings.BASE_DIR, "fonts", "NotoSans-Regular.ttf"),
+            os.path.join(settings.BASE_DIR, "static", "fonts", "NotoSans-Regular.ttf"),
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        ]
+        more_bold = [
+            os.path.join(settings.BASE_DIR, "fonts", "NotoSans-Bold.ttf"),
+            os.path.join(settings.BASE_DIR, "static", "fonts", "NotoSans-Bold.ttf"),
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+        ]
+        reg = next((p for p in more_reg if p and os.path.exists(p)), None)
+        bold = next((p for p in more_bold if p and os.path.exists(p)), None)
 
     if reg:
         try:
-            pdfmetrics.registerFont(TTFont("OfferRegular", reg))
-            if bold:
-                pdfmetrics.registerFont(TTFont("OfferBold", bold))
+            pdfmetrics.registerFont(TTFont("OfferRegular", str(reg)))
+            if bold and os.path.exists(str(bold)):
+                pdfmetrics.registerFont(TTFont("OfferBold", str(bold)))
                 return "OfferRegular", "OfferBold"
             return "OfferRegular", "OfferRegular"
         except Exception:
@@ -495,6 +582,17 @@ def proposal_pdf(request, pk: int):
     combined_notes = "\n\n".join([x for x in [poz_notes, notes] if x])
 
     brez = list(pozicija.breziniai.all().order_by("id"))
+
+    # PRIORITETAS: pirmiau tie brėžiniai, kurie turi preview
+    brez_with_preview = []
+    brez_without_preview = []
+    for b in brez:
+        pp = _resolve_preview_path(b)
+        if pp:
+            brez_with_preview.append((b, pp))
+        else:
+            brez_without_preview.append((b, None))
+    brez_prepared = brez_with_preview + brez_without_preview
 
     font_regular, font_bold = _register_fonts()
     notes_style = ParagraphStyle(name="notes", fontName=font_regular, fontSize=9, leading=12)
@@ -565,8 +663,9 @@ def proposal_pdf(request, pk: int):
         os.path.join(settings.MEDIA_ROOT, "logo.png") if getattr(settings, "MEDIA_ROOT", None) else None,
         os.path.join(settings.BASE_DIR, "media", "logo.png"),
         os.path.join(settings.BASE_DIR, "static", "img", "logo.png"),
+        os.path.join(settings.BASE_DIR, "pozicijos", "static", "pozicijos", "img", "logo.png"),
     ]
-    logo_path = next((p for p in logo_candidates if p and os.path.exists(p)), None)
+    logo_path = next((p for p in logo_candidates if p and os.path.exists(str(p))), None)
     if logo_path:
         try:
             c.drawImage(logo_path, margin_left, H - 20 * mm, width=30 * mm, height=10 * mm, preserveAspectRatio=True, mask="auto")
@@ -592,7 +691,7 @@ def proposal_pdf(request, pk: int):
         c.setFillColor(colors.HexColor("#6b7280"))
         c.drawString(margin_left, H - 41 * mm, sub)
 
-    # Hero dešinėje: pirmas realiai atvaizduojamas brėžinys
+    # Hero dešinėje: pirmas brėžinys su preview; jei nėra – placeholder
     hero_box_w = 56 * mm
     hero_box_h = 36 * mm
     hero_x = W - margin_right - hero_box_w
@@ -603,37 +702,37 @@ def proposal_pdf(request, pk: int):
     c.rect(hero_x, hero_y, hero_box_w, hero_box_h, stroke=1, fill=0)
 
     hero_drawn = False
-    hero_path = None
-    for b in brez:
-        p = _resolve_preview_path(b)
-        if p:
-            hero_path = p
-            break
+    hero_kind = "FILE"
+    hero_prepared = brez_prepared[0] if brez_prepared else None
 
-    if hero_path:
-        draw_path, temp_path = _prepare_image_for_pdf(hero_path)
-        if temp_path:
-            temp_files_to_cleanup.append(temp_path)
-        if draw_path:
-            try:
-                c.drawImage(
-                    ImageReader(draw_path),
-                    hero_x + 1,
-                    hero_y + 1,
-                    width=hero_box_w - 2,
-                    height=hero_box_h - 2,
-                    preserveAspectRatio=True,
-                    anchor="c",
-                    mask="auto",
-                )
-                hero_drawn = True
-            except Exception:
-                hero_drawn = False
+    if hero_prepared:
+        b0, hero_path = hero_prepared
+        hero_kind = _drawing_kind(b0)
+
+        if hero_path:
+            draw_path, temp_path = _prepare_image_for_pdf(hero_path)
+            if temp_path:
+                temp_files_to_cleanup.append(temp_path)
+            if draw_path:
+                try:
+                    c.drawImage(
+                        ImageReader(draw_path),
+                        hero_x + 1,
+                        hero_y + 1,
+                        width=hero_box_w - 2,
+                        height=hero_box_h - 2,
+                        preserveAspectRatio=True,
+                        anchor="c",
+                        mask="auto",
+                    )
+                    hero_drawn = True
+                except Exception:
+                    hero_drawn = False
 
     if not hero_drawn:
         c.setFont(font_bold, 11)
         c.setFillColor(colors.HexColor("#9ca3af"))
-        c.drawCentredString(hero_x + hero_box_w / 2, hero_y + hero_box_h / 2, "N/A")
+        c.drawCentredString(hero_x + hero_box_w / 2, hero_y + hero_box_h / 2, hero_kind)
 
     y = H - 58 * mm
 
@@ -711,13 +810,13 @@ def proposal_pdf(request, pk: int):
                     [
                         ("FONT", (0, 0), (-1, -1), font_regular, 9),
                         ("FONT", (0, 0), (-1, 0), font_bold, 9),
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f9fafb")),
                         ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e7eb")),
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f9fafb")),
                         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                        ("TOPPADDING", (0, 0), (-1, -1), 4),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                        ("TOPPADDING", (0, 0), (-1, -1), 6),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
                     ]
                 )
             )
@@ -729,102 +828,82 @@ def proposal_pdf(request, pk: int):
             y -= 12
 
     # ------------------------------------------------------------------------
-    # Drawings thumbnails
+    # Drawings
     # ------------------------------------------------------------------------
     if show_drawings:
         draw_section_title(labels["section_drawings"])
 
-        resolved = []
-        for b in brez:
-            p = _resolve_preview_path(b)
-            if p:
-                resolved.append((b, p))
-
-        if not resolved:
+        if not brez_prepared:
             c.setFont(font_regular, 9)
             c.setFillColor(colors.HexColor("#6b7280"))
             c.drawString(margin_left, y, labels["no_drawings"])
             y -= 12
         else:
-            thumbs = resolved[:3]
-            avail_w = W - margin_left - margin_right
+            # 3 miniatiūros per puslapį (kaip šablone), prioritetas su preview
+            thumbs = []
+            for b, preview_path in brez_prepared[:3]:
+                if preview_path:
+                    draw_path, temp_path = _prepare_image_for_pdf(preview_path)
+                    if temp_path:
+                        temp_files_to_cleanup.append(temp_path)
+                    thumbs.append((b, draw_path))
+                else:
+                    thumbs.append((b, None))
+
+            thumb_w = 58 * mm
+            thumb_h = 34 * mm
             gap = 6 * mm
-            thumb_w = (avail_w - 2 * gap) / 3
-            thumb_h = thumb_w * 0.75
-            needed_h = thumb_h + 11 * mm
 
-            if y - needed_h < bottom_margin:
-                new_page()
-                draw_section_title(labels["section_drawings"])
+            x = margin_left
+            for b, pth in thumbs:
+                if y < bottom_margin + thumb_h + 20 * mm:
+                    new_page()
+                    draw_section_title(labels["section_drawings"])
 
-            top_y = y
-            for i, (b, img_path) in enumerate(thumbs):
-                x = margin_left + i * (thumb_w + gap)
-
-                c.setStrokeColor(colors.HexColor("#e5e7eb"))
-                c.setLineWidth(0.6)
-                c.rect(x, top_y - thumb_h, thumb_w, thumb_h, stroke=1, fill=0)
-
-                draw_path, temp_path = _prepare_image_for_pdf(img_path)
-                if temp_path:
-                    temp_files_to_cleanup.append(temp_path)
-
-                drawn = False
-                if draw_path:
+                if pth and os.path.exists(pth):
                     try:
                         c.drawImage(
-                            ImageReader(draw_path),
-                            x + 1,
-                            top_y - thumb_h + 1,
-                            width=thumb_w - 2,
-                            height=thumb_h - 2,
+                            ImageReader(pth),
+                            x,
+                            y - thumb_h,
+                            width=thumb_w,
+                            height=thumb_h,
                             preserveAspectRatio=True,
                             anchor="c",
                             mask="auto",
                         )
-                        drawn = True
                     except Exception:
-                        drawn = False
+                        pth = None
 
-                if not drawn:
-                    ext = (getattr(b, "ext", "") or "").lower()
-                    mark = "3D" if ext in {"stp", "step"} else "N/A"
-                    c.setFont(font_bold, 12)
-                    c.setFillColor(colors.HexColor("#6b7280"))
-                    c.drawCentredString(x + thumb_w / 2, top_y - thumb_h / 2, mark)
+                if not pth:
+                    c.setStrokeColor(colors.HexColor("#e5e7eb"))
+                    c.rect(x, y - thumb_h, thumb_w, thumb_h, stroke=1, fill=0)
+                    c.setFont(font_bold, 11)
+                    c.setFillColor(colors.HexColor("#9ca3af"))
+                    c.drawCentredString(x + thumb_w / 2, y - thumb_h / 2, _drawing_kind(b))
 
-                # Laikinai paliekam pavadinimą diagnostikai
-                name = (
-                    getattr(b, "pavadinimas", None)
-                    or getattr(b, "filename", None)
-                    or os.path.basename(getattr(getattr(b, "failas", None), "name", "") or "")
-                    or os.path.basename(getattr(getattr(b, "file", None), "name", "") or "")
-                    or "—"
-                )
-                name = str(name).strip()[:40]
+                cap = (getattr(b, "pavadinimas", "") or getattr(b, "filename", "") or "").strip()
+                if not cap:
+                    cap = str(b)
                 c.setFont(font_regular, 8)
-                c.setFillColor(colors.HexColor("#374151"))
-                c.drawString(x, top_y - thumb_h - 3.5 * mm, name)
+                c.setFillColor(colors.HexColor("#111827"))
+                c.drawString(x, y - thumb_h - 4, cap[:60])
 
-            y = top_y - needed_h - 4
+                x += thumb_w + gap
 
-    # Footer timestamp
-    c.setFont(font_regular, 8)
-    c.setFillColor(colors.HexColor("#6b7280"))
-    c.drawRightString(W - margin_right, 10 * mm, datetime.now().strftime("%Y-%m-%d %H:%M"))
+            y -= (thumb_h + 16)
 
-    c.save()
-    pdf_data = buf.getvalue()
-    buf.close()
-
+    # Cleanup temp images
     for p in temp_files_to_cleanup:
         try:
-            if p and os.path.exists(p):
-                os.remove(p)
+            os.unlink(p)
         except Exception:
             pass
 
-    filename = f"offer_{code}.pdf" if lang == "en" else f"pasiulymas_{code}.pdf"
-    resp = HttpResponse(pdf_data, content_type="application/pdf")
-    resp["Content-Disposition"] = f'inline; filename="{filename}"'
+    c.showPage()
+    c.save()
+
+    resp = HttpResponse(content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="offer_{pozicija.poz_kodas or pozicija.pk}.pdf"'
+    resp.write(buf.getvalue())
     return resp
