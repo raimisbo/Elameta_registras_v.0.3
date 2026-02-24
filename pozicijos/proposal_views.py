@@ -12,7 +12,6 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
-
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -372,6 +371,18 @@ def _resolve_preview_path(b) -> str | None:
         except Exception:
             pass
 
+    # URL property (pvz. models.PozicijosBrezinys.thumb_url)
+    for helper_attr in ("thumb_url", "preview_url", "thumbnail_url"):
+        try:
+            url_value = getattr(b, helper_attr, None)
+            if callable(url_value):
+                url_value = url_value()
+            p = _url_to_media_path(url_value)
+            if p:
+                return p
+        except Exception:
+            pass
+
     # fallback į originalą tik image failams
     image_exts = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"}
     for attr in ("failas", "file", "image", "uploaded", "upload", "source", "original"):
@@ -391,8 +402,7 @@ def _resolve_preview_path(b) -> str | None:
 
 def _prepare_image_for_pdf(img_path: str | None) -> tuple[str | None, str | None]:
     """
-    Grąžina kelią, kurį ReportLab gali patikimai nupiešti.
-    Jei reikia – konvertuoja į laikiną PNG.
+    Return a ReportLab-safe image path.
 
     Returns:
       (draw_path, temp_path_to_cleanup)
@@ -401,36 +411,44 @@ def _prepare_image_for_pdf(img_path: str | None) -> tuple[str | None, str | None
         return None, None
 
     ext = os.path.splitext(img_path)[1].lower()
-    force_convert_exts = {".tif", ".tiff", ".webp"}
 
-    if ext not in force_convert_exts:
-        try:
-            with Image.open(img_path) as im:
-                im.verify()
-            return img_path, None
-        except Exception:
-            pass
+    # Dažniausiai ReportLab saugiai suvalgo šituos tiesiogiai.
+    # (PNG su alpha irgi dažnai veikia, bet jei norėsi – galima visus PNG irgi konvertuoti.)
+    safe_direct_exts = {".jpg", ".jpeg", ".png"}
+    if ext in safe_direct_exts:
+        return img_path, None
 
+    # Viską kitą (WEBP/TIFF/BMP/...) konvertuojam į PNG per PIL
     try:
         with Image.open(img_path) as im:
-            if im.mode in ("RGBA", "LA", "P"):
-                try:
-                    rgba = im.convert("RGBA")
-                    bg = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
-                    im = Image.alpha_composite(bg, rgba).convert("RGB")
-                except Exception:
-                    im = im.convert("RGB")
-            elif im.mode not in ("RGB", "L"):
-                im = im.convert("RGB")
+            # Suaktyvinam pilną failo nuskaitymą, kad vėliau nebūtų lazy read problemų
+            im.load()
+
+            # Sutvarkom režimus į ReportLab draugišką formatą
+            if im.mode in ("RGBA", "LA"):
+                # Paliekam alpha (mask="auto" drawImage pusėje ją dažnai tvarko)
+                converted = im.convert("RGBA")
+            elif im.mode == "P":
+                # Palettized – jei turi transparency info, verčiam į RGBA, kitaip į RGB
+                if "transparency" in im.info:
+                    converted = im.convert("RGBA")
+                else:
+                    converted = im.convert("RGB")
+            elif im.mode in ("RGB", "L"):
+                converted = im
+            else:
+                # CMYK, I;16, 1, ir kt.
+                converted = im.convert("RGB")
 
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
             tmp_path = tmp.name
             tmp.close()
-            im.save(tmp_path, format="PNG")
+
+            converted.save(tmp_path, format="PNG")
             return tmp_path, tmp_path
+
     except Exception:
         return None, None
-
 
 def _drawing_kind(b) -> str:
     """Grąžina trumpą tipą placeholderiui: PDF / 3D / FILE."""

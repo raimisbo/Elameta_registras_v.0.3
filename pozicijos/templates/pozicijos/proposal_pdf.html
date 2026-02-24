@@ -1,5 +1,6 @@
 {# pozicijos/templates/pozicijos/proposal_pdf.html #}
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}
   {{ labels.offer_title }} – {{ pozicija.poz_kodas|default:pozicija.id }}
@@ -20,6 +21,19 @@
     gap:12px;
     flex-wrap:wrap;
     margin-bottom:12px;
+  }
+
+  .offer-head{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    min-width:260px;
+    flex:1;
+  }
+  .offer-logo{
+    height:38px;
+    width:auto;
+    display:block;
   }
 
   .offer-title{
@@ -149,16 +163,25 @@
 {% endblock %}
 
 {% block content %}
+{% static 'pozicijos/img/logo.png' as logo_rel %}
+
+{# PDF rendereriams dažniausiai reikia absoliutaus URL. Jei turim request – pasidarom. #}
+{% if request %}
+{% with logo_abs=request.scheme|add:"://"|add:request.get_host|add:logo_rel %}
+{% with logo_src=logo_abs %}
 <div class="offer-wrap">
 
   <div class="offer-topbar">
-    <div>
-      <h1 class="offer-title">
-        {{ labels.offer_title }} – {{ pozicija.poz_kodas|default:pozicija.id }}
-      </h1>
-      <div class="offer-sub">
-        {% if pozicija.klientas %}{{ pozicija.klientas }}{% endif %}
-        {% if pozicija.projektas %}{% if pozicija.klientas %} • {% endif %}{{ pozicija.projektas }}{% endif %}
+    <div class="offer-head">
+      <img class="offer-logo" src="{{ logo_src }}" alt="Logo">
+      <div>
+        <h1 class="offer-title">
+          {{ labels.offer_title }} – {{ pozicija.poz_kodas|default:pozicija.id }}
+        </h1>
+        <div class="offer-sub">
+          {% if pozicija.klientas %}{{ pozicija.klientas }}{% endif %}
+          {% if pozicija.projektas %}{% if pozicija.klientas %} • {% endif %}{{ pozicija.projektas }}{% endif %}
+        </div>
       </div>
     </div>
 
@@ -179,97 +202,227 @@
     <h2>{{ labels.section_main }}</h2>
 
     {% if field_rows %}
-      <table>
-        <tbody>
-          {% for lbl, val in field_rows %}
-            <tr>
-              <th style="width:280px;">{{ lbl }}</th>
-              <td>{{ val }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <table>
+      <tbody>
+      {% for lbl, val in field_rows %}
+      <tr>
+        <th style="width:280px;">{{ lbl }}</th>
+        <td>{{ val }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
     {% else %}
-      <div class="muted">{{ labels.no_data }}</div>
+    <div class="muted">{{ labels.no_data }}</div>
     {% endif %}
   </section>
 
   {% if show_prices %}
-    <section class="card">
-      <h2>{{ labels.section_prices }}</h2>
+  <section class="card">
+    <h2>{{ labels.section_prices }}</h2>
 
-      {% if kainos %}
-        <table>
-          <thead>
-            <tr>
-              <th style="width:120px;">{{ labels.col_price }}</th>
-              <th style="width:110px;">{{ labels.col_unit }}</th>
-              <th style="width:110px;">{{ labels.col_qty_from }}</th>
-              <th style="width:110px;">{{ labels.col_qty_to }}</th>
-              <th style="width:140px;">{{ labels.col_valid_from }}</th>
-              <th style="width:140px;">{{ labels.col_valid_to }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for k in kainos %}
-              <tr>
-                <td>{{ k.kaina|default:"" }}</td>
-                <td>{{ k.matas|default:"" }}</td>
-                <td>{% if k.kiekis_nuo is None %}—{% else %}{{ k.kiekis_nuo }}{% endif %}</td>
-                <td>{% if k.kiekis_iki is None %}—{% else %}{{ k.kiekis_iki }}{% endif %}</td>
-                <td>{% if k.galioja_nuo %}{{ k.galioja_nuo|date:"Y-m-d" }}{% else %}—{% endif %}</td>
-                <td>{% if k.galioja_iki %}{{ k.galioja_iki|date:"Y-m-d" }}{% else %}—{% endif %}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <div class="muted">{{ labels.no_prices }}</div>
-      {% endif %}
-    </section>
+    {% if kainos %}
+    <table>
+      <thead>
+      <tr>
+        <th style="width:120px;">{{ labels.col_price }}</th>
+        <th style="width:110px;">{{ labels.col_unit }}</th>
+        <th style="width:110px;">{{ labels.col_qty_from }}</th>
+        <th style="width:110px;">{{ labels.col_qty_to }}</th>
+        <th style="width:140px;">{{ labels.col_valid_from }}</th>
+        <th style="width:140px;">{{ labels.col_valid_to }}</th>
+      </tr>
+      </thead>
+      <tbody>
+      {% for k in kainos %}
+      <tr>
+        <td>{{ k.kaina|default:"" }}</td>
+        <td>{{ k.matas|default:"" }}</td>
+        <td>{% if k.kiekis_nuo is None %}—{% else %}{{ k.kiekis_nuo }}{% endif %}</td>
+        <td>{% if k.kiekis_iki is None %}—{% else %}{{ k.kiekis_iki }}{% endif %}</td>
+        <td>{% if k.galioja_nuo %}{{ k.galioja_nuo|date:"Y-m-d" }}{% else %}—{% endif %}</td>
+        <td>{% if k.galioja_iki %}{{ k.galioja_iki|date:"Y-m-d" }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="muted">{{ labels.no_prices }}</div>
+    {% endif %}
+  </section>
   {% endif %}
 
   {% if show_drawings %}
-    <section class="card">
-      <h2>{{ labels.section_drawings }}</h2>
+  <section class="card">
+    <h2>{{ labels.section_drawings }}</h2>
 
-      {% if brez %}
-        <div class="thumbs">
-          {% for b in brez|slice:":3" %}
-            <div class="thumb">
-              <div class="thumb-box">
-                {% if b.preview %}
-                  <img src="{{ b.preview.url }}" alt="">
-                {% else %}
-                  <div class="muted" style="font-weight:700;">
-                    {% if b.ext in "stp,step" %}3D{% else %}N/A{% endif %}
-                  </div>
-                {% endif %}
-              </div>
-              <div class="thumb-cap">
-                {% if b.pavadinimas %}{{ b.pavadinimas }}{% else %}{{ b.filename }}{% endif %}
-              </div>
-            </div>
-          {% endfor %}
+    {% if brez %}
+    <div class="thumbs">
+      {% for b in brez|slice:":3" %}
+      <div class="thumb">
+        <div class="thumb-box">
+          {% if b.preview %}
+          <img src="{{ b.preview.url }}" alt="">
+          {% else %}
+          <div class="muted" style="font-weight:700;">
+            {% if b.ext in "stp,step" %}3D{% else %}N/A{% endif %}
+          </div>
+          {% endif %}
         </div>
-      {% else %}
-        <div class="muted">{{ labels.no_drawings }}</div>
-      {% endif %}
-    </section>
+        <div class="thumb-cap">
+          {% if b.pavadinimas %}{{ b.pavadinimas }}{% else %}{{ b.filename }}{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="muted">{{ labels.no_drawings }}</div>
+    {% endif %}
+  </section>
   {% endif %}
 
   {% if pozicija.pastabos or notes %}
-    <section class="card">
-      <h2>{{ labels.section_notes }}</h2>
-      <div class="notes">
-        {% if pozicija.pastabos %}{{ pozicija.pastabos }}{% endif %}
-        {% if pozicija.pastabos and notes %}
+  <section class="card">
+    <h2>{{ labels.section_notes }}</h2>
+    <div class="notes">
+      {% if pozicija.pastabos %}{{ pozicija.pastabos }}{% endif %}
+      {% if pozicija.pastabos and notes %}
 
 {% endif %}
-        {% if notes %}{{ notes }}{% endif %}
-      </div>
-    </section>
+      {% if notes %}{{ notes }}{% endif %}
+    </div>
+  </section>
   {% endif %}
 
 </div>
+{% endwith %}
+{% endwith %}
+
+{% else %}
+{# Fallback: jei request nėra kontekste – naudojam relatyvų static URL #}
+<div class="offer-wrap">
+
+  <div class="offer-topbar">
+    <div class="offer-head">
+      <img class="offer-logo" src="{{ logo_rel }}" alt="Logo">
+      <div>
+        <h1 class="offer-title">
+          {{ labels.offer_title }} – {{ pozicija.poz_kodas|default:pozicija.id }}
+        </h1>
+        <div class="offer-sub">
+          {% if pozicija.klientas %}{{ pozicija.klientas }}{% endif %}
+          {% if pozicija.projektas %}{% if pozicija.klientas %} • {% endif %}{{ pozicija.projektas }}{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="offer-actions">
+      <a class="btn btn-secondary" href="{% url 'pozicijos:detail' pozicija.pk %}">← Atgal</a>
+      <a class="btn btn-primary" target="_blank" rel="noopener"
+         href="{% url 'pozicijos:pdf' pozicija.pk %}?{{ qs }}">
+        PDF
+      </a>
+    </div>
+  </div>
+
+  <div class="hint">{{ labels.preview_hint }}</div>
+
+  <section class="card">
+    <h2>{{ labels.section_main }}</h2>
+
+    {% if field_rows %}
+    <table>
+      <tbody>
+      {% for lbl, val in field_rows %}
+      <tr>
+        <th style="width:280px;">{{ lbl }}</th>
+        <td>{{ val }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="muted">{{ labels.no_data }}</div>
+    {% endif %}
+  </section>
+
+  {% if show_prices %}
+  <section class="card">
+    <h2>{{ labels.section_prices }}</h2>
+
+    {% if kainos %}
+    <table>
+      <thead>
+      <tr>
+        <th style="width:120px;">{{ labels.col_price }}</th>
+        <th style="width:110px;">{{ labels.col_unit }}</th>
+        <th style="width:110px;">{{ labels.col_qty_from }}</th>
+        <th style="width:110px;">{{ labels.col_qty_to }}</th>
+        <th style="width:140px;">{{ labels.col_valid_from }}</th>
+        <th style="width:140px;">{{ labels.col_valid_to }}</th>
+      </tr>
+      </thead>
+      <tbody>
+      {% for k in kainos %}
+      <tr>
+        <td>{{ k.kaina|default:"" }}</td>
+        <td>{{ k.matas|default:"" }}</td>
+        <td>{% if k.kiekis_nuo is None %}—{% else %}{{ k.kiekis_nuo }}{% endif %}</td>
+        <td>{% if k.kiekis_iki is None %}—{% else %}{{ k.kiekis_iki }}{% endif %}</td>
+        <td>{% if k.galioja_nuo %}{{ k.galioja_nuo|date:"Y-m-d" }}{% else %}—{% endif %}</td>
+        <td>{% if k.galioja_iki %}{{ k.galioja_iki|date:"Y-m-d" }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="muted">{{ labels.no_prices }}</div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if show_drawings %}
+  <section class="card">
+    <h2>{{ labels.section_drawings }}</h2>
+
+    {% if brez %}
+    <div class="thumbs">
+      {% for b in brez|slice:":3" %}
+      <div class="thumb">
+        <div class="thumb-box">
+          {% if b.preview %}
+          <img src="{{ b.preview.url }}" alt="">
+          {% else %}
+          <div class="muted" style="font-weight:700;">
+            {% if b.ext in "stp,step" %}3D{% else %}N/A{% endif %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="thumb-cap">
+          {% if b.pavadinimas %}{{ b.pavadinimas }}{% else %}{{ b.filename }}{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="muted">{{ labels.no_drawings }}</div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if pozicija.pastabos or notes %}
+  <section class="card">
+    <h2>{{ labels.section_notes }}</h2>
+    <div class="notes">
+      {% if pozicija.pastabos %}{{ pozicija.pastabos }}{% endif %}
+      {% if pozicija.pastabos and notes %}
+
+      {% endif %}
+      {% if notes %}{{ notes }}{% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+</div>
+{% endif %}
 {% endblock %}

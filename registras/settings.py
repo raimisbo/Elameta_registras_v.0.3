@@ -1,17 +1,21 @@
-"""
-Django settings for registras project.
-"""
-
 from pathlib import Path
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- Security ---
-SECRET_KEY = 'django-insecure-x30nv(zk%f6zbytg#%bi$=nq@81c3t#04d!r10ldr5g1^h&t$='
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = 'django-insecure-4&*r0n#d&%&-n9)5a7lm_nq%v^d1o0q#o9#5!e9n$2q8a^'
+
+# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
 ALLOWED_HOSTS = []
 
-# --- Applications ---
+# Application definition
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -21,12 +25,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'simple_history',
-
-    # third-party
     'django_extensions',
 
-    # local
-    'pozicijos.apps.PozicijosConfig',
+    'pozicijos',
 ]
 
 MIDDLEWARE = [
@@ -37,16 +38,16 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
     'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
 ROOT_URLCONF = 'registras.urls'
 
-# --- Templates ---
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / "templates"],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -62,7 +63,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'registras.wsgi.application'
 
-# --- Database ---
+# Database
+# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -70,43 +73,49 @@ DATABASES = {
     }
 }
 
-# --- Password validation ---
+# Password validation
+# https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
+
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
 ]
 
-# --- Localization ---
+# Internationalization
+# https://docs.djangoproject.com/en/5.1/topics/i18n/
+
 LANGUAGE_CODE = 'lt'
+
 TIME_ZONE = 'Europe/Vilnius'
+
 USE_I18N = True
+
 USE_TZ = True
 
-DATE_FORMAT = 'Y-m-d'
-DATE_INPUT_FORMATS = ['%Y-%m-%d']
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-# --- Static & Media ---
+MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/media/'
+
 STATIC_URL = '/static/'
-
-# Projektinis static katalogas (pasirinktinai).
-# Jei katalogo nėra – jo neįtraukiam, kad nebūtų W004 warning.
-STATICFILES_DIRS = []
-PROJECT_STATIC_DIR = BASE_DIR / "static"
-if PROJECT_STATIC_DIR.exists():
-    STATICFILES_DIRS.append(PROJECT_STATIC_DIR)
-
-# Collectstatic output (NEdėti į STATICFILES_DIRS, kitaip bus E002)
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# --- PDF pasiūlymo logo (ReportLab) ---
+# Logo laikomas repo static'e: pozicijos/static/pozicijos/img/logo.png
+OFFER_LOGO_PATH = BASE_DIR / "pozicijos" / "static" / "pozicijos" / "img" / "logo.png"
 
-# --- Default primary key field ---
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# ===================== Pasiūlymo (offer) nustatymai =====================
-OFFER_COMPANY_NAME = "ELAMETA UAB"
-OFFER_COMPANY_LINE1 = "J. Basanavičiaus g. 114N, LT-28214, Utena"
-OFFER_COMPANY_LINE2 = "Tel. +370 000 00000, el. paštas info@elameta.lt"
