@@ -882,16 +882,11 @@ def proposal_pdf(request, pk: int):
                     c.setFillColor(colors.HexColor("#9ca3af"))
                     c.drawCentredString(x + thumb_w / 2, y - thumb_h / 2, _drawing_kind(b))
 
-                cap = (getattr(b, "pavadinimas", "") or getattr(b, "filename", "") or "").strip()
-                if not cap:
-                    cap = str(b)
-                c.setFont(font_regular, 8)
-                c.setFillColor(colors.HexColor("#111827"))
-                c.drawString(x, y - thumb_h - 4, cap[:60])
+
 
                 x += thumb_w + gap
 
-            y -= (thumb_h + 16)
+            y -= (thumb_h + 8)
 
     # Cleanup temp images
     for p in temp_files_to_cleanup:
