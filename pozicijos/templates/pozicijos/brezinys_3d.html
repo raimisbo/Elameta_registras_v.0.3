@@ -44,10 +44,7 @@
       border-color: rgba(147,197,253,.60);
     }
 
-    #viewer {
-      height: calc(100vh - 52px);
-      width: 100%;
-    }
+    #viewer { height: calc(100vh - 52px); width: 100%; }
 
     #status {
       position: fixed;
@@ -64,7 +61,6 @@
       z-index: 9999;
     }
 
-    /* Overlay (NE viduje #viewer, kad O3DV jo neištrintų) */
     #measureOverlay {
       position: fixed;
       left: 0;
@@ -91,15 +87,12 @@
       box-shadow: 0 0 0 2px rgba(0,0,0,.25);
       transform: translate(-9999px, -9999px);
     }
-
-    /* Preview taškas (snap indikacija) */
     .mpt.preview {
       width: 12px;
       height: 12px;
       background: rgba(253, 224, 71, .95);
       border-color: rgba(255,255,255,.90);
     }
-
     .mlabel {
       position:absolute;
       padding: 4px 8px;
@@ -112,7 +105,6 @@
       white-space: nowrap;
     }
 
-    /* Back hint overlay (kai negalim grįžti be dublio) */
     #backHint {
       position: fixed;
       inset: 0;
@@ -132,10 +124,7 @@
       padding: 14px 14px;
       box-shadow: 0 12px 40px rgba(0,0,0,.45);
     }
-    #backHint .panel h3 {
-      margin: 0 0 8px 0;
-      font-size: 14px;
-    }
+    #backHint .panel h3 { margin: 0 0 8px 0; font-size: 14px; }
     #backHint .panel p {
       margin: 0 0 10px 0;
       font-size: 13px;
@@ -156,12 +145,9 @@
     const STEP_MODEL_URL = "{{ brezinys.failas.url|escapejs }}";
     const BACK_URL = "{% url 'pozicijos:detail' pozicija.id %}";
 
-    // Jei reikia vienetų konversijos:
-    // mm -> m: 0.001 ir "m"
     const MEASURE_SCALE = 1.0;
     const MEASURE_UNIT  = "mm";
 
-    // Snap slenksčiai (px overlay koordinatėse).
     const SNAP_VERTEX_PX = 14;
     const SNAP_EDGE_PX   = 10;
 
@@ -182,8 +168,7 @@
     }
 
     function dist2d(a, b) {
-      const dx = a.x - b.x;
-      const dy = a.y - b.y;
+      const dx = a.x - b.x, dy = a.y - b.y;
       return Math.sqrt(dx*dx + dy*dy);
     }
 
@@ -195,12 +180,10 @@
     }
 
     function hideBackHint() {
-      const wrap = document.getElementById('backHint');
-      wrap.style.display = 'none';
+      document.getElementById('backHint').style.display = 'none';
     }
 
     function smartBack() {
-      // Jei 3D yra iframe – eiti į top (tas pats tab'as)
       try {
         if (window.top && window.top !== window.self) {
           window.top.location.href = BACK_URL;
@@ -208,40 +191,27 @@
         }
       } catch (e) {}
 
-      // Jei turim opener (t.y. 3D atidaryta taip, kad leidžia grįžti į originalų tab'ą)
       try {
         if (window.opener && !window.opener.closed) {
-          // nukreipiam opener į detail ir fokusuojam
           try { window.opener.location.href = BACK_URL; } catch (e) {}
           try { window.opener.focus(); } catch (e) {}
-
-          // bandom uždaryti šitą tab'ą
           try { window.close(); } catch (e) {}
-
-          // Jei uždaryti neleidžia – NEkraunam detail šiame tab'e, kad nesidubliuotų.
-          // Parodom aiškų pranešimą, kad šį tab'ą reikia uždaryti rankiniu būdu.
           setTimeout(() => {
-            // Jei vis dar esam čia, vadinasi close nepavyko
             showBackHint(
               "Ši 3D peržiūra buvo atidaryta atskirame tab'e.\n" +
               "Naršyklė neleido automatiškai uždaryti tab'o.\n\n" +
               "Uždarykite šį tab'ą (Cmd+W / Ctrl+W), o pozicijos kortelė yra originaliame tab'e."
             );
           }, 120);
-
           return;
         }
       } catch (e) {}
 
-      // Jei nėra opener: tai dažniausiai reiškia, kad 3D atidaryta su rel=\"noopener\"
-      // Tokiu atveju grįžimas į detail šiame tab'e sukurs dublį, todėl to nedarom.
-      // Jei istorija turi prieš tai buvusį įrašą – grįžtam back (be dublio).
       if (window.history && window.history.length > 1) {
         window.history.back();
         return;
       }
 
-      // Kitu atveju – pranešam (neperadresuojam į detail, kad nedubliuotų tab'ų).
       showBackHint(
         "Šis tab'as atidarytas be ryšio su pradiniu (window.opener nėra).\n" +
         "Jei atidarote 3D peržiūrą su target=\"_blank\" ir rel=\"noopener\", naršyklė atjungia pradinį tab'ą.\n\n" +
@@ -251,10 +221,8 @@
     }
 
     window.addEventListener('load', () => {
-      // Back mygtukas veikia net jei viewer nepasileistų
       const backBtn = document.getElementById('btnBack');
       if (backBtn) backBtn.addEventListener('click', smartBack);
-
       const backHintClose = document.getElementById('backHintClose');
       if (backHintClose) backHintClose.addEventListener('click', hideBackHint);
 
@@ -276,29 +244,26 @@
       let navigation = null;
       let isLoaded = false;
 
-      // Measure state
       let measureOn = false;
-      let P1v = null; // THREE.Vector3
-      let P2v = null; // THREE.Vector3
-      let P1snap = null; // 'V' | 'E' | 'F'
-      let P2snap = null; // 'V' | 'E' | 'F'
+      let areaOn = false;
 
-      // fallback screen coords
-      let S1f = null; // {x,y,visible}
-      let S2f = null;
+      let P1v = null, P2v = null;
+      let P1snap = null, P2snap = null;
+      let S1f = null, S2f = null;
 
-      // Preview snap
-      let preview = null; // {snap:'V'|'E'|'F', s:{x,y,visible}}
+      let preview = null;
+
+      // V2 area state
+      // areaSelectionByKey: key -> { areaRaw, centroid, point, faceIndex, objectId }
+      let areaSelectionByKey = new Map();
+      let areaTotalRaw = 0;
+      let areaLast = null; // { key, areaRaw, pt, centroid, snap }
 
       let rafId = null;
-
-      // throttling move
       let moveRaf = null;
       let lastMove = null;
 
-      function showOverlay(on) {
-        overlay.style.display = on ? 'block' : 'none';
-      }
+      function showOverlay(on) { overlay.style.display = on ? 'block' : 'none'; }
 
       function setMarker(el, s) {
         if (!s || !s.visible) {
@@ -322,7 +287,7 @@
       }
 
       function setLabel(s, text) {
-        if (!s || !s.visible) {
+        if (!s || !s.visible || !text) {
           label.style.transform = 'translate(-9999px, -9999px)';
           label.textContent = '';
           return;
@@ -331,21 +296,60 @@
         label.style.transform = `translate(${s.x}px, ${s.y}px) translate(-50%, -120%)`;
       }
 
+      function hidePreview() {
+        preview = null;
+        setMarker(pprev, null);
+      }
+
+      function areaCount() { return areaSelectionByKey.size; }
+
+      function areaTotalScaled() {
+        return areaTotalRaw * MEASURE_SCALE * MEASURE_SCALE;
+      }
+
+      function updateClearButtonVisibility() {
+        const btnClear = document.getElementById('btnClear');
+        btnClear.style.display = (measureOn || areaOn) ? 'inline-block' : 'none';
+      }
+
+      function areaStatusText(prefix) {
+        const totalScaled = areaTotalScaled();
+        const count = areaCount();
+
+        if (!areaLast) {
+          return (prefix ? prefix + "\n" : "") +
+            "Plotas (V2): kaupiamas mesh trikampių plotas.\n" +
+            `Pažymėta trikampių: ${count}\n` +
+            `Bendra suma: ${fmt(totalScaled, 2)} ${MEASURE_UNIT}²\n\n` +
+            "Spausk ant paviršiaus, kad pridėtum trikampį.\n" +
+            "Pakartotinas paspaudimas ant to paties trikampio – nepridedamas dar kartą.\n" +
+            "\"Išvalyti\" – nuvalyti sumą. ESC – išjungti.";
+        }
+
+        const lastScaled = areaLast.areaRaw * MEASURE_SCALE * MEASURE_SCALE;
+        return (prefix ? prefix + "\n" : "") +
+          "Plotas (V2): kaupiamas mesh trikampių plotas.\n" +
+          `Paskutinis trikampis: ${fmt(lastScaled, 2)} ${MEASURE_UNIT}²\n` +
+          `Pažymėta trikampių: ${count}\n` +
+          `Bendra suma: ${fmt(totalScaled, 2)} ${MEASURE_UNIT}²\n` +
+          `P[${areaLast.snap}]: X=${fmt(areaLast.pt.x)} Y=${fmt(areaLast.pt.y)} Z=${fmt(areaLast.pt.z)}\n\n` +
+          "Pakartotinas paspaudimas ant to paties trikampio – nepridedamas dar kartą.\n" +
+          "\"Išvalyti\" – nuvalyti sumą. ESC – išjungti.";
+      }
+
       function clearMeasure(keepMode=false) {
         P1v = null; P2v = null;
         P1snap = null; P2snap = null;
         S1f = null; S2f = null;
-
         preview = null;
-        setMarker(pprev, null);
 
+        setMarker(pprev, null);
         setMarker(p1el, null);
         setMarker(p2el, null);
         setLine(null, null);
         setLabel(null, "");
 
-        const btnClear = document.getElementById('btnClear');
-        btnClear.style.display = (measureOn ? 'inline-block' : 'none');
+        updateClearButtonVisibility();
 
         if (keepMode && measureOn) {
           setStatus(
@@ -353,34 +357,84 @@
             "Auto-snap: Vertex > Edge > Free.\n" +
             "ESC – išjungti. \"Išvalyti\" – nuvalyti."
           );
-        } else if (!measureOn) {
+        } else if (!measureOn && !areaOn) {
+          setStatus("", false);
+        }
+      }
+
+      function clearArea(keepMode=false) {
+        areaSelectionByKey.clear();
+        areaTotalRaw = 0;
+        areaLast = null;
+
+        preview = null;
+        P1v = null; P2v = null;
+        P1snap = null; P2snap = null;
+        S1f = null; S2f = null;
+
+        setMarker(pprev, null);
+        setMarker(p1el, null);
+        setMarker(p2el, null);
+        setLine(null, null);
+        setLabel(null, "");
+
+        updateClearButtonVisibility();
+
+        if (keepMode && areaOn) {
+          setStatus(areaStatusText());
+        } else if (!measureOn && !areaOn) {
           setStatus("", false);
         }
       }
 
       function setMeasureMode(on) {
         measureOn = on;
+        if (measureOn && areaOn) {
+          areaOn = false;
+          clearArea(false);
+        }
 
-        const btn = document.getElementById('btnMeasure');
-        const btnClear = document.getElementById('btnClear');
+        document.getElementById('btnMeasure').classList.toggle('is-on', measureOn);
+        document.getElementById('btnArea').classList.toggle('is-on', areaOn);
+        updateClearButtonVisibility();
 
-        btn.classList.toggle('is-on', measureOn);
-        btnClear.style.display = measureOn ? 'inline-block' : 'none';
-
-        if (measureOn) {
+        if (measureOn || areaOn) {
           showOverlay(true);
-          clearMeasure(true);
+          if (measureOn) clearMeasure(true);
           startTick();
         } else {
           showOverlay(false);
           clearMeasure(false);
+          clearArea(false);
+          stopTick();
+        }
+      }
+
+      function setAreaMode(on) {
+        areaOn = on;
+        if (areaOn && measureOn) {
+          measureOn = false;
+          clearMeasure(false);
+        }
+
+        document.getElementById('btnMeasure').classList.toggle('is-on', measureOn);
+        document.getElementById('btnArea').classList.toggle('is-on', areaOn);
+        updateClearButtonVisibility();
+
+        if (measureOn || areaOn) {
+          showOverlay(true);
+          if (areaOn) clearArea(true);
+          startTick();
+        } else {
+          showOverlay(false);
+          clearMeasure(false);
+          clearArea(false);
           stopTick();
         }
       }
 
       function getThreeCam() {
         if (!innerViewer) return null;
-
         const cands = [];
         try { if (typeof innerViewer.GetCamera === "function") cands.push(innerViewer.GetCamera()); } catch (e) {}
         cands.push(innerViewer.camera);
@@ -390,10 +444,8 @@
         for (const c of cands) {
           if (!c) continue;
           if (isThreeCamera(c)) return c;
-
           if (c.camera && isThreeCamera(c.camera)) return c.camera;
           if (c.threeCamera && isThreeCamera(c.threeCamera)) return c.threeCamera;
-
           try {
             if (typeof c.GetThreeCamera === "function") {
               const tc = c.GetThreeCamera();
@@ -406,11 +458,9 @@
 
       function projectToOverlay(vec3, cam) {
         if (!vec3 || !cam) return null;
-
         const w = overlay.clientWidth;
         const h = overlay.clientHeight;
         if (!w || !h) return null;
-
         if (typeof vec3.clone !== "function" || typeof vec3.project !== "function") return null;
 
         const v = vec3.clone().project(cam);
@@ -426,7 +476,7 @@
       }
 
       function updateOverlay() {
-        if (!measureOn) return;
+        if (!measureOn && !areaOn) return;
 
         const cam = getThreeCam();
         const s1 = (cam && P1v) ? projectToOverlay(P1v, cam) : S1f;
@@ -434,31 +484,42 @@
 
         setMarker(p1el, s1);
         setMarker(p2el, s2);
-        setLine(s1, s2);
 
-        if (preview && (!P1v || !P2v)) {
-          setMarker(pprev, preview.s);
-        } else {
-          setMarker(pprev, null);
-        }
+        if (measureOn) setLine(s1, s2);
+        else setLine(null, null);
 
-        if (P1v && P2v) {
+        if (preview && (areaOn || !P1v || !P2v)) setMarker(pprev, preview.s);
+        else setMarker(pprev, null);
+
+        if (measureOn && P1v && P2v) {
           const raw = (typeof P1v.distanceTo === "function") ? P1v.distanceTo(P2v) : null;
           const d = (raw !== null) ? (raw * MEASURE_SCALE) : null;
-
           if (s1 && s2 && s1.visible && s2.visible && d !== null) {
             const mid = { x: (s1.x + s2.x)/2, y: (s1.y + s2.y)/2, visible: true };
             setLabel(mid, `${fmt(d, 2)} ${MEASURE_UNIT}`);
           } else {
             setLabel(null, "");
           }
-        } else {
-          setLabel(null, "");
+          return;
         }
+
+        if (areaOn && areaLast && areaLast.centroid) {
+          const ls = cam ? projectToOverlay(areaLast.centroid, cam) : null;
+          const totalScaled = areaTotalScaled();
+          const count = areaCount();
+          if (ls && ls.visible) {
+            setLabel(ls, `Σ ${fmt(totalScaled, 2)} ${MEASURE_UNIT}² (${count})`);
+          } else {
+            setLabel(null, "");
+          }
+          return;
+        }
+
+        setLabel(null, "");
       }
 
       function tick() {
-        if (!measureOn) { rafId = null; return; }
+        if (!measureOn && !areaOn) { rafId = null; return; }
         updateOverlay();
         rafId = requestAnimationFrame(tick);
       }
@@ -502,7 +563,6 @@
 
         const obj = inter.object;
         const geom = obj.geometry;
-
         const posAttr = geom.attributes && geom.attributes.position;
         if (!posAttr) return null;
 
@@ -538,7 +598,6 @@
 
       function closestPointOnSegment(p, a, b) {
         if (!p || !a || !b || typeof p.clone !== 'function') return null;
-
         const ab = b.clone().sub(a);
         const ap = p.clone().sub(a);
         const denom = (typeof ab.lengthSq === 'function') ? ab.lengthSq() : null;
@@ -546,7 +605,6 @@
 
         let t = ap.dot(ab) / denom;
         t = Math.max(0, Math.min(1, t));
-
         return a.clone().add(ab.multiplyScalar(t));
       }
 
@@ -601,7 +659,7 @@
         }
 
         if (bestE && bestE.d <= SNAP_EDGE_PX) {
-          return { pt: (typeof bestE.cp.clone === 'function') ? bestE.cp.clone() : bestE.cp, snap: 'E', screen: bestE.s, screenFallback: { x: mouse.x, y: mouse.y, visible: true } };
+          return { pt: bestE.cp.clone(), snap: 'E', screen: bestE.s, screenFallback: { x: mouse.x, y: mouse.y, visible: true } };
         }
 
         const pt = (typeof inter.point.clone === 'function') ? inter.point.clone() : inter.point;
@@ -609,15 +667,58 @@
         return { pt, snap: 'F', screen: s, screenFallback: { x: mouse.x, y: mouse.y, visible: true } };
       }
 
-      function hidePreview() {
-        preview = null;
-        setMarker(pprev, null);
+      function triangleArea3D(vA, vB, vC) {
+        if (!vA || !vB || !vC || typeof vA.clone !== 'function') return null;
+        try {
+          const ab = vB.clone().sub(vA);
+          const ac = vC.clone().sub(vA);
+          const cross = ab.cross(ac);
+          const raw = (typeof cross.length === 'function') ? cross.length() : null;
+          if (raw === null || !isFinite(raw)) return null;
+          return 0.5 * raw;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function triangleCentroid(vA, vB, vC) {
+        if (!vA || !vB || !vC || typeof vA.clone !== 'function') return null;
+        try { return vA.clone().add(vB).add(vC).multiplyScalar(1/3); }
+        catch (e) { return null; }
+      }
+
+      function getObjectStableId(obj) {
+        if (!obj) return "obj:unknown";
+        if (typeof obj.id !== 'undefined') return `objid:${obj.id}`;
+        if (typeof obj.uuid === 'string') return `uuid:${obj.uuid}`;
+        if (!obj.__areaPickLocalId) {
+          obj.__areaPickLocalId = `local:${Math.random().toString(36).slice(2, 10)}`;
+        }
+        return obj.__areaPickLocalId;
+      }
+
+      function getAreaFaceKey(inter) {
+        const n = normalizeIntersection(inter);
+        if (!n || !n.object) return null;
+
+        let faceIndex = (typeof n.faceIndex === 'number') ? n.faceIndex : null;
+
+        if (faceIndex === null && n.face && typeof n.face.a === 'number' && typeof n.face.b === 'number' && typeof n.face.c === 'number') {
+          // fallback raktas be faceIndex (retesnis atvejis)
+          const oid = getObjectStableId(n.object);
+          return `${oid}|faceabc:${n.face.a},${n.face.b},${n.face.c}`;
+        }
+
+        if (faceIndex === null) return null;
+
+        const oid = getObjectStableId(n.object);
+        return `${oid}|fi:${faceIndex}`;
       }
 
       function onHostMouseMove(ev) {
-        if (!measureOn) return;
+        if (!measureOn && !areaOn) return;
         if (!isLoaded || !innerViewer) return;
-        if (P1v && P2v) return;
+        if (measureOn && P1v && P2v) return;
 
         const rect = overlay.getBoundingClientRect();
         const x = ev.clientX - rect.left;
@@ -633,7 +734,7 @@
 
         moveRaf = requestAnimationFrame(() => {
           moveRaf = null;
-          if (!lastMove || !measureOn) return;
+          if (!lastMove || (!measureOn && !areaOn)) return;
 
           let hit = null;
           try {
@@ -661,7 +762,7 @@
       }
 
       function onMeasureClick(button, mouseCoords) {
-        if (!measureOn) return;
+        if (!measureOn && !areaOn) return;
         if (button !== 1) return;
 
         if (!isLoaded || !innerViewer) {
@@ -687,6 +788,58 @@
         const st = (snap && snap.snap) ? snap.snap : 'F';
         const sc = (snap && (snap.screen || snap.screenFallback)) ? (snap.screen || snap.screenFallback) : { x: mouseCoords.x, y: mouseCoords.y, visible: true };
 
+        if (areaOn) {
+          const nHit = normalizeIntersection(hit);
+          const tri = getTriangleWorldVerts(nHit);
+          if (!tri) {
+            setStatus("Plotas: nepavyko nuskaityti pasirinkto trikampio geometrijos.");
+            return;
+          }
+
+          const rawArea = triangleArea3D(tri.vA, tri.vB, tri.vC);
+          if (rawArea === null) {
+            setStatus("Plotas: nepavyko apskaičiuoti trikampio ploto.");
+            return;
+          }
+
+          const key = getAreaFaceKey(nHit);
+          if (!key) {
+            setStatus("Plotas: nepavyko sudaryti unikalaus trikampio rakto (faceIndex).");
+            return;
+          }
+
+          const centroid = triangleCentroid(tri.vA, tri.vB, tri.vC) || pt;
+          const already = areaSelectionByKey.has(key);
+
+          if (!already) {
+            areaSelectionByKey.set(key, {
+              areaRaw: rawArea,
+              centroid: centroid,
+              point: pt,
+              faceIndex: (typeof nHit.faceIndex === 'number') ? nHit.faceIndex : null,
+              objectId: nHit.object ? getObjectStableId(nHit.object) : null,
+            });
+            areaTotalRaw += rawArea;
+          }
+
+          areaLast = { key, areaRaw: rawArea, pt, centroid, snap: st };
+
+          // naudojam esamus markerius tik paskutiniam pasirinkimui parodyti
+          P1v = pt; P1snap = st; S1f = sc;
+          P2v = null; P2snap = null; S2f = null;
+
+          hidePreview();
+          updateOverlay();
+
+          if (already) {
+            setStatus(areaStatusText("Tas pats trikampis jau buvo įtrauktas (nedubliuotas)."));
+          } else {
+            setStatus(areaStatusText("Trikampis pridėtas."));
+          }
+          return;
+        }
+
+        // 2 taškų matavimas
         if (!P1v) {
           P1v = pt; P1snap = st; S1f = sc;
           hidePreview();
@@ -740,6 +893,8 @@
                 "Auto-snap: Vertex > Edge > Free.\n" +
                 "ESC – išjungti. \"Išvalyti\" – nuvalyti."
               );
+            } else if (areaOn) {
+              setStatus(areaStatusText());
             } else {
               setStatus("", false);
             }
@@ -755,9 +910,8 @@
         navigation = innerViewer.navigation;
 
         const prevClick = navigation.onMouseClick;
-
         navigation.SetMouseClickHandler((button, mouseCoords) => {
-          if (!measureOn) {
+          if (!measureOn && !areaOn) {
             if (typeof prevClick === "function") prevClick(button, mouseCoords);
             return;
           }
@@ -769,19 +923,26 @@
 
         window.addEventListener('resize', () => {
           try { embedded.Resize(); } catch (e) {}
-          if (measureOn) updateOverlay();
+          if (measureOn || areaOn) updateOverlay();
         });
 
         document.getElementById('btnMeasure').addEventListener('click', () => {
           setMeasureMode(!measureOn);
         });
+
+        document.getElementById('btnArea').addEventListener('click', () => {
+          setAreaMode(!areaOn);
+        });
+
         document.getElementById('btnClear').addEventListener('click', () => {
-          clearMeasure(true);
+          if (measureOn) clearMeasure(true);
+          else if (areaOn) clearArea(true);
         });
 
         window.addEventListener('keydown', (ev) => {
-          if (ev.key === 'Escape' && measureOn) {
-            setMeasureMode(false);
+          if (ev.key === 'Escape' && (measureOn || areaOn)) {
+            if (measureOn) setMeasureMode(false);
+            else setAreaMode(false);
           }
         });
 
@@ -807,22 +968,18 @@
     <div class="right">
       <button id="btnClear" class="ui-btn" type="button" style="display:none;">Išvalyti</button>
       <button id="btnMeasure" class="ui-btn" type="button">Matuoti</button>
-      {# "Atsisiųsti" pašalintas #}
+      <button id="btnArea" class="ui-btn" type="button">Plotas</button>
     </div>
   </div>
 
   <div id="viewer"></div>
 
-  <!-- Overlay yra BODY lygyje (kad O3DV jo neištrintų) -->
   <div id="measureOverlay">
     <svg id="measureSvg" xmlns="http://www.w3.org/2000/svg">
       <line id="mline" x1="-9999" y1="-9999" x2="-9999" y2="-9999"
             stroke="rgba(147,197,253,.95)" stroke-width="2" />
     </svg>
-
-    <!-- Preview snap marker -->
     <div id="mprev" class="mpt preview"></div>
-
     <div id="mpt1" class="mpt"></div>
     <div id="mpt2" class="mpt"></div>
     <div id="mlabel" class="mlabel"></div>
@@ -830,7 +987,6 @@
 
   <div id="status"></div>
 
-  <!-- Back hint (kai negalim grįžti be dublio) -->
   <div id="backHint">
     <div class="panel">
       <h3>Grįžimas</h3>
