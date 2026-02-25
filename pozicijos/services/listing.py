@@ -15,6 +15,10 @@ FIELD_KEY_MAP: Dict[str, str] = {
     "kaina_eur": "kainos_eilutes__kaina",
     "ktl_dangos_storis_display": "ktl_dangos_storis_txt",
     "miltai_dangos_storis_display": "miltai_dangos_storis_txt",
+    # Jei vartotojas filtruoja per "display" stulpelius, apdorojam specialiai apply_filters()
+    # (ne per vieną ORM lauką), todėl čia jų nemapinam.
+    # "metiniai_kiekiai_display": ...
+    # "projekto_gyvavimo_display": ...
 }
 
 TEXT_FILTER_FIELDS = {
@@ -22,6 +26,9 @@ TEXT_FILTER_FIELDS = {
     "projektas",
     "poz_kodas",
     "poz_pavad",
+    "brezinio_nr",
+    "ieinantis_kodas",
+    "iseinantis_kodas",
     "metalas",
     "padengimas",
     "padengimo_standartas",

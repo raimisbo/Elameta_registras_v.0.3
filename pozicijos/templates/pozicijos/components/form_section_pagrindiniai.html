@@ -34,4 +34,34 @@
       {% if form.poz_pavad.errors %}<div class="field-errors">{{ form.poz_pavad.errors|striptags }}</div>{% endif %}
     </div>
   </div>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.brezinio_nr.label }}</div>
+    <div class="field-control">
+      {{ form.brezinio_nr }}
+      {% if form.brezinio_nr.errors %}
+      <div class="field-errors">{{ form.brezinio_nr.errors|striptags }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.ieinantis_kodas.label }}</div>
+    <div class="field-control">
+      {{ form.ieinantis_kodas }}
+      {% if form.ieinantis_kodas.errors %}
+      <div class="field-errors">{{ form.ieinantis_kodas.errors|striptags }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">{{ form.iseinantis_kodas.label }}</div>
+    <div class="field-control">
+      {{ form.iseinantis_kodas }}
+      {% if form.iseinantis_kodas.errors %}
+      <div class="field-errors">{{ form.iseinantis_kodas.errors|striptags }}</div>
+      {% endif %}
+    </div>
+  </div>
 </section>

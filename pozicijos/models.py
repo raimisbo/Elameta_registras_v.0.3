@@ -32,6 +32,9 @@ class Pozicija(models.Model):
     projektas = models.CharField("Projektas", max_length=255, blank=True, default="")
     poz_kodas = models.CharField("Pozicijos kodas", max_length=100, blank=True, default="")
     poz_pavad = models.CharField("Pozicijos pavadinimas", max_length=255, blank=True, default="")
+    brezinio_nr = models.CharField("Brėžinio Nr.", max_length=255, blank=True, default="")
+    ieinantis_kodas = models.CharField("Įeinantis kodas", max_length=255, blank=True, default="")
+    iseinantis_kodas = models.CharField("Išeinantis kodas", max_length=255, blank=True, default="")
 
     # Medžiaga / detalė
     metalas = models.CharField("Metalas", max_length=120, blank=True, default="")

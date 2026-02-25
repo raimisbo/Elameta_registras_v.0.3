@@ -95,7 +95,7 @@ class PozicijaForm(forms.ModelForm):
     class Meta:
         model = Pozicija
         fields = [
-            "klientas", "projektas", "poz_kodas", "poz_pavad",
+            "klientas", "projektas", "poz_kodas", "poz_pavad", "brezinio_nr", "ieinantis_kodas", "iseinantis_kodas",
             "metalas", "metalo_storis", "plotas", "svoris", "x_mm", "y_mm", "z_mm",
             "paslauga_ktl", "paslauga_miltai", "paslauga_paruosimas", "paruosimas", "padengimas", "padengimo_standartas",
             "partiju_dydziai", "metinis_kiekis_nuo", "metinis_kiekis_iki", "projekto_gyvavimo_nuo", "projekto_gyvavimo_iki",
