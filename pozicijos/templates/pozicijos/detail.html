@@ -370,12 +370,6 @@
             </div>
             <div class="poz-field-row"><span class="poz-field-label">Faktinis/val.</span><span class="poz-field-value">{% if pozicija.miltai_faktinis_per_valanda is not None %}{{ pozicija.miltai_faktinis_per_valanda }}{% else %}—{% endif %}</span>
             </div>
-            <div class="poz-field-row"><span class="poz-field-label">Detalių kiekis rėme</span><span
-                    class="poz-field-value">{% if pozicija.miltai_detaliu_kiekis_reme is not None %}{{ pozicija.miltai_detaliu_kiekis_reme|floatformat:0 }}{% else %}—{% endif %}</span>
-            </div>
-            <div class="poz-field-row"><span class="poz-field-label">Faktinis kiekis rėme</span><span
-                    class="poz-field-value">{% if pozicija.miltai_faktinis_kiekis_reme is not None %}{{ pozicija.miltai_faktinis_kiekis_reme|floatformat:0 }}{% else %}—{% endif %}</span>
-            </div>
             <div class="poz-field-row"><span class="poz-field-label">Kabinimo aprašymas</span><span
                     class="poz-field-value">{{ pozicija.miltai_kabinimas_aprasymas|default:"—" }}</span></div>
             <div class="poz-field-row"><span class="poz-field-label">Pastabos</span><span class="poz-field-value">{{ pozicija.miltai_pastabos|default:"—" }}</span>
