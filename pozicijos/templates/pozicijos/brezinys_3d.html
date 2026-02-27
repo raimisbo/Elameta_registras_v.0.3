@@ -105,6 +105,20 @@
       white-space: nowrap;
     }
 
+    /* Ploto (trikampių) vizualizacija */
+    .tri-poly {
+      fill: rgba(34,197,94,.20);
+      stroke: rgba(34,197,94,.85);
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+    .tri-poly.last {
+      fill: rgba(249,115,22,.22);
+      stroke: rgba(249,115,22,.95);
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+    }
+
     #backHint {
       position: fixed;
       inset: 0;
@@ -150,6 +164,9 @@
 
     const SNAP_VERTEX_PX = 14;
     const SNAP_EDGE_PX   = 10;
+
+    // Kad overlay trianguliacija neapkrautų (saugiklis)
+    const MAX_TRI_OVERLAY = 350;
 
     function setStatus(msg, show = true) {
       const el = document.getElementById('status');
@@ -238,6 +255,7 @@
       const p2el = document.getElementById('mpt2');
       const line = document.getElementById('mline');
       const label = document.getElementById('mlabel');
+      const triLayer = document.getElementById('trianglesLayer');
 
       let embedded = null;
       let innerViewer = null;
@@ -254,10 +272,13 @@
       let preview = null;
 
       // V2 area state
-      // areaSelectionByKey: key -> { areaRaw, centroid, point, faceIndex, objectId }
+      // areaSelectionByKey: key -> { areaRaw, centroid, vA, vB, vC }
       let areaSelectionByKey = new Map();
       let areaTotalRaw = 0;
-      let areaLast = null; // { key, areaRaw, pt, centroid, snap }
+      let areaLast = null; // { key, areaRaw, pt, centroid, snap, action:'+'|'-' }
+
+      // SVG overlay optimizacija
+      let triOverlayDirty = true;
 
       let rafId = null;
       let moveRaf = null;
@@ -318,22 +339,27 @@
 
         if (!areaLast) {
           return (prefix ? prefix + "\n" : "") +
-            "Plotas (V2): kaupiamas mesh trikampių plotas.\n" +
+            "Plotas (V2): pasirinkti trikampiai matomi ant modelio.\n" +
             `Pažymėta trikampių: ${count}\n` +
             `Bendra suma: ${fmt(totalScaled, 2)} ${MEASURE_UNIT}²\n\n` +
-            "Spausk ant paviršiaus, kad pridėtum trikampį.\n" +
-            "Pakartotinas paspaudimas ant to paties trikampio – nepridedamas dar kartą.\n" +
+            "Spausk ant paviršiaus:\n" +
+            "  • 1 kartą – pridėti trikampį\n" +
+            "  • 2 kartą ant to paties – nuimti (toggle)\n\n" +
             "\"Išvalyti\" – nuvalyti sumą. ESC – išjungti.";
         }
 
         const lastScaled = areaLast.areaRaw * MEASURE_SCALE * MEASURE_SCALE;
+        const act = (areaLast.action === '-') ? "NUIMTA" : "PRIDĖTA";
+
         return (prefix ? prefix + "\n" : "") +
-          "Plotas (V2): kaupiamas mesh trikampių plotas.\n" +
-          `Paskutinis trikampis: ${fmt(lastScaled, 2)} ${MEASURE_UNIT}²\n` +
+          "Plotas (V2): pasirinkti trikampiai matomi ant modelio.\n" +
+          `Paskutinis trikampis (${act}): ${fmt(lastScaled, 2)} ${MEASURE_UNIT}²\n` +
           `Pažymėta trikampių: ${count}\n` +
           `Bendra suma: ${fmt(totalScaled, 2)} ${MEASURE_UNIT}²\n` +
           `P[${areaLast.snap}]: X=${fmt(areaLast.pt.x)} Y=${fmt(areaLast.pt.y)} Z=${fmt(areaLast.pt.z)}\n\n` +
-          "Pakartotinas paspaudimas ant to paties trikampio – nepridedamas dar kartą.\n" +
+          "Spausk ant paviršiaus:\n" +
+          "  • 1 kartą – pridėti trikampį\n" +
+          "  • 2 kartą ant to paties – nuimti (toggle)\n\n" +
           "\"Išvalyti\" – nuvalyti sumą. ESC – išjungti.";
       }
 
@@ -366,6 +392,9 @@
         areaSelectionByKey.clear();
         areaTotalRaw = 0;
         areaLast = null;
+
+        triOverlayDirty = true;
+        if (triLayer) triLayer.innerHTML = "";
 
         preview = null;
         P1v = null; P2v = null;
@@ -423,7 +452,10 @@
 
         if (measureOn || areaOn) {
           showOverlay(true);
-          if (areaOn) clearArea(true);
+          if (areaOn) {
+            triOverlayDirty = true;
+            setStatus(areaStatusText());
+          }
           startTick();
         } else {
           showOverlay(false);
@@ -475,10 +507,51 @@
         return { x, y, visible };
       }
 
+      function updateTrianglesOverlay(cam) {
+        if (!triLayer) return;
+
+        if (!areaOn) {
+          if (triLayer.innerHTML) triLayer.innerHTML = "";
+          return;
+        }
+
+        // jei nieko nepažymėta – išvalom
+        if (areaSelectionByKey.size === 0) {
+          if (triLayer.innerHTML) triLayer.innerHTML = "";
+          triOverlayDirty = false;
+          return;
+        }
+
+        // Renderinam kas kartą kai dirty (pasikeitė pasirinkimas) arba kai kamera juda (tick) – kad poligonai "sektų"
+        // Čia darom paprastai: per tick perpiešiam, bet su limitu.
+        let i = 0;
+        let html = "";
+
+        for (const [key, rec] of areaSelectionByKey.entries()) {
+          i += 1;
+          if (i > MAX_TRI_OVERLAY) break;
+
+          const a = projectToOverlay(rec.vA, cam);
+          const b = projectToOverlay(rec.vB, cam);
+          const c = projectToOverlay(rec.vC, cam);
+
+          if (!a || !b || !c || !a.visible || !b.visible || !c.visible) continue;
+
+          const pts = `${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y}`;
+          const cls = (areaLast && areaLast.key === key) ? "tri-poly last" : "tri-poly";
+          html += `<polygon class="${cls}" points="${pts}"></polygon>`;
+        }
+
+        triLayer.innerHTML = html;
+        triOverlayDirty = false;
+      }
+
       function updateOverlay() {
         if (!measureOn && !areaOn) return;
 
         const cam = getThreeCam();
+        if (cam) updateTrianglesOverlay(cam);
+
         const s1 = (cam && P1v) ? projectToOverlay(P1v, cam) : S1f;
         const s2 = (cam && P2v) ? projectToOverlay(P2v, cam) : S2f;
 
@@ -704,7 +777,6 @@
         let faceIndex = (typeof n.faceIndex === 'number') ? n.faceIndex : null;
 
         if (faceIndex === null && n.face && typeof n.face.a === 'number' && typeof n.face.b === 'number' && typeof n.face.c === 'number') {
-          // fallback raktas be faceIndex (retesnis atvejis)
           const oid = getObjectStableId(n.object);
           return `${oid}|faceabc:${n.face.a},${n.face.b},${n.face.c}`;
         }
@@ -809,33 +881,48 @@
           }
 
           const centroid = triangleCentroid(tri.vA, tri.vB, tri.vC) || pt;
+
           const already = areaSelectionByKey.has(key);
 
-          if (!already) {
-            areaSelectionByKey.set(key, {
-              areaRaw: rawArea,
-              centroid: centroid,
-              point: pt,
-              faceIndex: (typeof nHit.faceIndex === 'number') ? nHit.faceIndex : null,
-              objectId: nHit.object ? getObjectStableId(nHit.object) : null,
-            });
-            areaTotalRaw += rawArea;
+          if (already) {
+            // TOGGLE OFF: nuimam
+            const old = areaSelectionByKey.get(key);
+            if (old && typeof old.areaRaw === "number") {
+              areaTotalRaw -= old.areaRaw;
+            }
+            areaSelectionByKey.delete(key);
+            areaLast = { key, areaRaw: rawArea, pt, centroid, snap: st, action: '-' };
+            triOverlayDirty = true;
+
+            // markeriai
+            P1v = pt; P1snap = st; S1f = sc;
+            P2v = null; P2snap = null; S2f = null;
+
+            hidePreview();
+            updateOverlay();
+            setStatus(areaStatusText("Trikampis nuimtas."));
+            return;
           }
 
-          areaLast = { key, areaRaw: rawArea, pt, centroid, snap: st };
+          // TOGGLE ON: pridedam
+          areaSelectionByKey.set(key, {
+            areaRaw: rawArea,
+            centroid: centroid,
+            vA: tri.vA,
+            vB: tri.vB,
+            vC: tri.vC,
+          });
+          areaTotalRaw += rawArea;
 
-          // naudojam esamus markerius tik paskutiniam pasirinkimui parodyti
+          areaLast = { key, areaRaw: rawArea, pt, centroid, snap: st, action: '+' };
+          triOverlayDirty = true;
+
           P1v = pt; P1snap = st; S1f = sc;
           P2v = null; P2snap = null; S2f = null;
 
           hidePreview();
           updateOverlay();
-
-          if (already) {
-            setStatus(areaStatusText("Tas pats trikampis jau buvo įtrauktas (nedubliuotas)."));
-          } else {
-            setStatus(areaStatusText("Trikampis pridėtas."));
-          }
+          setStatus(areaStatusText("Trikampis pridėtas."));
           return;
         }
 
@@ -923,6 +1010,7 @@
 
         window.addEventListener('resize', () => {
           try { embedded.Resize(); } catch (e) {}
+          triOverlayDirty = true;
           if (measureOn || areaOn) updateOverlay();
         });
 
@@ -976,6 +1064,7 @@
 
   <div id="measureOverlay">
     <svg id="measureSvg" xmlns="http://www.w3.org/2000/svg">
+      <g id="trianglesLayer"></g>
       <line id="mline" x1="-9999" y1="-9999" x2="-9999" y2="-9999"
             stroke="rgba(147,197,253,.95)" stroke-width="2" />
     </svg>
