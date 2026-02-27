@@ -21,7 +21,7 @@
       box-sizing: border-box;
       gap: 12px;
     }
-    .topbar .left, .topbar .right { display:flex; gap:10px; align-items:center; }
+    .topbar .left, .topbar .right { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .topbar .title { min-width: 0; text-align: center; flex: 1; }
     .topbar .title .main { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .topbar .title .sub  { font-size: 12px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -42,6 +42,10 @@
     .ui-btn.is-on {
       background: rgba(147,197,253,.10);
       border-color: rgba(147,197,253,.60);
+    }
+    .ui-btn:disabled {
+      opacity: .45;
+      cursor: not-allowed;
     }
 
     #viewer { height: calc(100vh - 52px); width: 100%; }
@@ -165,8 +169,11 @@
     const SNAP_VERTEX_PX = 14;
     const SNAP_EDGE_PX   = 10;
 
-    // Kad overlay trianguliacija neapkrautų (saugiklis)
+    // overlay limit (kad neužmuštų)
     const MAX_TRI_OVERLAY = 350;
+
+    // „Paviršius“ region grow kampas (laipsniais)
+    const REGION_ANGLE_DEG = 15;
 
     function setStatus(msg, show = true) {
       const el = document.getElementById('status');
@@ -257,6 +264,9 @@
       const label = document.getElementById('mlabel');
       const triLayer = document.getElementById('trianglesLayer');
 
+      const btnAreaAll = document.getElementById('btnAreaAll');
+      const btnAreaRegion = document.getElementById('btnAreaRegion');
+
       let embedded = null;
       let innerViewer = null;
       let navigation = null;
@@ -264,6 +274,9 @@
 
       let measureOn = false;
       let areaOn = false;
+
+      // area režimo tipas: 'single' arba 'region'
+      let areaMode = "single";
 
       let P1v = null, P2v = null;
       let P1snap = null, P2snap = null;
@@ -277,8 +290,9 @@
       let areaTotalRaw = 0;
       let areaLast = null; // { key, areaRaw, pt, centroid, snap, action:'+'|'-' }
 
-      // SVG overlay optimizacija
-      let triOverlayDirty = true;
+      // Region cache per object geometry (adjacency, normals)
+      // WeakMap<object, { adj: Map<faceIndex, number[]>, nrm: Map<faceIndex, Vector3>, tri: Map<faceIndex, {a,b,c, vA,vB,vC, area, centroid}> }>
+      let regionCache = new WeakMap();
 
       let rafId = null;
       let moveRaf = null;
@@ -328,9 +342,12 @@
         return areaTotalRaw * MEASURE_SCALE * MEASURE_SCALE;
       }
 
-      function updateClearButtonVisibility() {
-        const btnClear = document.getElementById('btnClear');
-        btnClear.style.display = (measureOn || areaOn) ? 'inline-block' : 'none';
+      function updateButtons() {
+        const enable = !!areaOn;
+        if (btnAreaAll) btnAreaAll.disabled = !enable;
+        if (btnAreaRegion) btnAreaRegion.disabled = !enable;
+
+        if (btnAreaRegion) btnAreaRegion.classList.toggle('is-on', enable && areaMode === "region");
       }
 
       function areaStatusText(prefix) {
@@ -339,12 +356,15 @@
 
         if (!areaLast) {
           return (prefix ? prefix + "\n" : "") +
-            "Plotas (V2): pasirinkti trikampiai matomi ant modelio.\n" +
+            "Plotas:\n" +
+            `Režimas: ${areaMode === "region" ? "Paviršius (auto)" : "Rankinis (1 trik.)"}\n` +
             `Pažymėta trikampių: ${count}\n` +
             `Bendra suma: ${fmt(totalScaled, 2)} ${MEASURE_UNIT}²\n\n` +
             "Spausk ant paviršiaus:\n" +
-            "  • 1 kartą – pridėti trikampį\n" +
+            "  • 1 kartą – pridėti\n" +
             "  • 2 kartą ant to paties – nuimti (toggle)\n\n" +
+            "„Paviršius“: surenka gretimą regioną (kampas " + REGION_ANGLE_DEG + "°).\n" +
+            "„Visas plotas“: suskaičiuoja visą detalę.\n" +
             "\"Išvalyti\" – nuvalyti sumą. ESC – išjungti.";
         }
 
@@ -352,14 +372,14 @@
         const act = (areaLast.action === '-') ? "NUIMTA" : "PRIDĖTA";
 
         return (prefix ? prefix + "\n" : "") +
-          "Plotas (V2): pasirinkti trikampiai matomi ant modelio.\n" +
-          `Paskutinis trikampis (${act}): ${fmt(lastScaled, 2)} ${MEASURE_UNIT}²\n` +
+          "Plotas:\n" +
+          `Režimas: ${areaMode === "region" ? "Paviršius (auto)" : "Rankinis (1 trik.)"}\n` +
+          `Paskutinis (${act}): ${fmt(lastScaled, 2)} ${MEASURE_UNIT}²\n` +
           `Pažymėta trikampių: ${count}\n` +
           `Bendra suma: ${fmt(totalScaled, 2)} ${MEASURE_UNIT}²\n` +
           `P[${areaLast.snap}]: X=${fmt(areaLast.pt.x)} Y=${fmt(areaLast.pt.y)} Z=${fmt(areaLast.pt.z)}\n\n` +
-          "Spausk ant paviršiaus:\n" +
-          "  • 1 kartą – pridėti trikampį\n" +
-          "  • 2 kartą ant to paties – nuimti (toggle)\n\n" +
+          "„Paviršius“: surenka gretimą regioną (kampas " + REGION_ANGLE_DEG + "°).\n" +
+          "„Visas plotas“: suskaičiuoja visą detalę.\n" +
           "\"Išvalyti\" – nuvalyti sumą. ESC – išjungti.";
       }
 
@@ -374,8 +394,6 @@
         setMarker(p2el, null);
         setLine(null, null);
         setLabel(null, "");
-
-        updateClearButtonVisibility();
 
         if (keepMode && measureOn) {
           setStatus(
@@ -393,7 +411,6 @@
         areaTotalRaw = 0;
         areaLast = null;
 
-        triOverlayDirty = true;
         if (triLayer) triLayer.innerHTML = "";
 
         preview = null;
@@ -406,8 +423,6 @@
         setMarker(p2el, null);
         setLine(null, null);
         setLabel(null, "");
-
-        updateClearButtonVisibility();
 
         if (keepMode && areaOn) {
           setStatus(areaStatusText());
@@ -425,7 +440,7 @@
 
         document.getElementById('btnMeasure').classList.toggle('is-on', measureOn);
         document.getElementById('btnArea').classList.toggle('is-on', areaOn);
-        updateClearButtonVisibility();
+        updateButtons();
 
         if (measureOn || areaOn) {
           showOverlay(true);
@@ -448,14 +463,11 @@
 
         document.getElementById('btnMeasure').classList.toggle('is-on', measureOn);
         document.getElementById('btnArea').classList.toggle('is-on', areaOn);
-        updateClearButtonVisibility();
+        updateButtons();
 
         if (measureOn || areaOn) {
           showOverlay(true);
-          if (areaOn) {
-            triOverlayDirty = true;
-            setStatus(areaStatusText());
-          }
+          if (areaOn) setStatus(areaStatusText());
           startTick();
         } else {
           showOverlay(false);
@@ -515,15 +527,11 @@
           return;
         }
 
-        // jei nieko nepažymėta – išvalom
         if (areaSelectionByKey.size === 0) {
           if (triLayer.innerHTML) triLayer.innerHTML = "";
-          triOverlayDirty = false;
           return;
         }
 
-        // Renderinam kas kartą kai dirty (pasikeitė pasirinkimas) arba kai kamera juda (tick) – kad poligonai "sektų"
-        // Čia darom paprastai: per tick perpiešiam, bet su limitu.
         let i = 0;
         let html = "";
 
@@ -543,7 +551,6 @@
         }
 
         triLayer.innerHTML = html;
-        triOverlayDirty = false;
       }
 
       function updateOverlay() {
@@ -663,7 +670,7 @@
           const vA = new Vector3().fromBufferAttribute(posAttr, ia).applyMatrix4(obj.matrixWorld);
           const vB = new Vector3().fromBufferAttribute(posAttr, ib).applyMatrix4(obj.matrixWorld);
           const vC = new Vector3().fromBufferAttribute(posAttr, ic).applyMatrix4(obj.matrixWorld);
-          return { vA, vB, vC };
+          return { vA, vB, vC, ia, ib, ic };
         } catch (e) {
           return null;
         }
@@ -760,6 +767,20 @@
         catch (e) { return null; }
       }
 
+      function triangleNormal(vA, vB, vC) {
+        if (!vA || !vB || !vC || typeof vA.clone !== 'function') return null;
+        try {
+          const ab = vB.clone().sub(vA);
+          const ac = vC.clone().sub(vA);
+          const n = ab.cross(ac);
+          const len = (typeof n.length === "function") ? n.length() : null;
+          if (!len || !isFinite(len) || len < 1e-12) return null;
+          return n.multiplyScalar(1/len);
+        } catch (e) {
+          return null;
+        }
+      }
+
       function getObjectStableId(obj) {
         if (!obj) return "obj:unknown";
         if (typeof obj.id !== 'undefined') return `objid:${obj.id}`;
@@ -833,6 +854,250 @@
         });
       }
 
+      function ensureRegionCacheForObject(obj, anyHit) {
+        if (!obj || !obj.geometry) return null;
+        if (regionCache.has(obj)) return regionCache.get(obj);
+
+        const geom = obj.geometry;
+        const posAttr = geom.attributes && geom.attributes.position;
+        if (!posAttr) return null;
+
+        const Vector3 = getVector3CtorFrom(anyHit);
+        if (typeof Vector3 !== "function") return null;
+
+        // Build faces list (faceIndex -> vertex indices)
+        let indices = null;
+        if (geom.index && geom.index.array) indices = geom.index.array;
+
+        const faceCount = indices ? (indices.length / 3) : (posAttr.count / 3);
+        const tri = new Map();
+        const adj = new Map();
+        const nrm = new Map();
+
+        // Edge map: "min|max" -> [faceIndex,...]
+        const edgeMap = new Map();
+
+        function addEdge(a, b, fi) {
+          const mn = a < b ? a : b;
+          const mx = a < b ? b : a;
+          const key = mn + "|" + mx;
+          let arr = edgeMap.get(key);
+          if (!arr) { arr = []; edgeMap.set(key, arr); }
+          arr.push(fi);
+        }
+
+        for (let fi = 0; fi < faceCount; fi++) {
+          let ia, ib, ic;
+          if (indices) {
+            const i = fi * 3;
+            ia = indices[i]; ib = indices[i+1]; ic = indices[i+2];
+          } else {
+            ia = fi * 3; ib = fi * 3 + 1; ic = fi * 3 + 2;
+          }
+
+          // world verts
+          const vA = new Vector3().fromBufferAttribute(posAttr, ia).applyMatrix4(obj.matrixWorld);
+          const vB = new Vector3().fromBufferAttribute(posAttr, ib).applyMatrix4(obj.matrixWorld);
+          const vC = new Vector3().fromBufferAttribute(posAttr, ic).applyMatrix4(obj.matrixWorld);
+
+          const areaRaw = triangleArea3D(vA, vB, vC) || 0;
+          const centroid = triangleCentroid(vA, vB, vC) || vA;
+
+          tri.set(fi, { ia, ib, ic, vA, vB, vC, areaRaw, centroid });
+
+          const nn = triangleNormal(vA, vB, vC);
+          if (nn) nrm.set(fi, nn);
+
+          addEdge(ia, ib, fi);
+          addEdge(ib, ic, fi);
+          addEdge(ic, ia, fi);
+        }
+
+        // adjacency build
+        for (const faces of edgeMap.values()) {
+          if (!faces || faces.length < 2) continue;
+          for (let i = 0; i < faces.length; i++) {
+            for (let j = 0; j < faces.length; j++) {
+              if (i === j) continue;
+              const aFi = faces[i], bFi = faces[j];
+              let list = adj.get(aFi);
+              if (!list) { list = []; adj.set(aFi, list); }
+              list.push(bFi);
+            }
+          }
+        }
+
+        // dedupe adjacency arrays
+        for (const [k, list] of adj.entries()) {
+          const s = new Set(list);
+          adj.set(k, Array.from(s));
+        }
+
+        const cache = { tri, adj, nrm };
+        regionCache.set(obj, cache);
+        return cache;
+      }
+
+      function collectRegionFaces(obj, startFaceIndex, anyHit) {
+        const cache = ensureRegionCacheForObject(obj, anyHit);
+        if (!cache) return null;
+
+        const { adj, nrm } = cache;
+
+        const startN = nrm.get(startFaceIndex);
+        if (!startN) return [startFaceIndex];
+
+        const cosThr = Math.cos((REGION_ANGLE_DEG * Math.PI) / 180);
+
+        const visited = new Set();
+        const stack = [startFaceIndex];
+        visited.add(startFaceIndex);
+
+        let safety = 0;
+
+        while (stack.length) {
+          const fi = stack.pop();
+          const neigh = adj.get(fi) || [];
+          for (const nb of neigh) {
+            if (visited.has(nb)) continue;
+            const nn = nrm.get(nb);
+            if (!nn) continue;
+
+            // dot product threshold
+            const dot = startN.x*nn.x + startN.y*nn.y + startN.z*nn.z;
+            if (dot >= cosThr) {
+              visited.add(nb);
+              stack.push(nb);
+            }
+          }
+          safety += 1;
+          if (safety > 200000) break; // hard stop
+        }
+
+        return Array.from(visited);
+      }
+
+      function applyRegionToggle(nHit, pt, st) {
+        const obj = nHit.object;
+        const geom = obj && obj.geometry;
+        if (!obj || !geom) {
+          setStatus("Paviršius: nerastas mesh objektas.");
+          return;
+        }
+
+        const startFi = (typeof nHit.faceIndex === "number") ? nHit.faceIndex : null;
+        if (startFi === null) {
+          setStatus("Paviršius: nerastas faceIndex.");
+          return;
+        }
+
+        const oid = getObjectStableId(obj);
+        const startKey = `${oid}|fi:${startFi}`;
+        const startSelected = areaSelectionByKey.has(startKey);
+
+        setStatus("Paviršius: skaičiuoju regioną…");
+
+        // region collect
+        const faces = collectRegionFaces(obj, startFi, nHit) || [startFi];
+
+        const cache = ensureRegionCacheForObject(obj, nHit);
+        if (!cache) {
+          setStatus("Paviršius: nepavyko suformuoti regiono (cache).");
+          return;
+        }
+
+        let deltaArea = 0;
+        let changed = 0;
+
+        if (startSelected) {
+          // REMOVE region faces that are currently selected
+          for (const fi of faces) {
+            const key = `${oid}|fi:${fi}`;
+            const rec = areaSelectionByKey.get(key);
+            if (!rec) continue;
+            deltaArea -= rec.areaRaw;
+            areaSelectionByKey.delete(key);
+            changed += 1;
+          }
+          areaLast = { key: startKey, areaRaw: (cache.tri.get(startFi)?.areaRaw || 0), pt, centroid: (cache.tri.get(startFi)?.centroid || pt), snap: st, action: '-' };
+        } else {
+          // ADD region faces that are not selected
+          for (const fi of faces) {
+            const key = `${oid}|fi:${fi}`;
+            if (areaSelectionByKey.has(key)) continue;
+
+            const t = cache.tri.get(fi);
+            if (!t) continue;
+
+            areaSelectionByKey.set(key, {
+              areaRaw: t.areaRaw,
+              centroid: t.centroid,
+              vA: t.vA,
+              vB: t.vB,
+              vC: t.vC,
+            });
+            deltaArea += t.areaRaw;
+            changed += 1;
+          }
+          areaLast = { key: startKey, areaRaw: (cache.tri.get(startFi)?.areaRaw || 0), pt, centroid: (cache.tri.get(startFi)?.centroid || pt), snap: st, action: '+' };
+        }
+
+        areaTotalRaw += deltaArea;
+
+        setStatus(areaStatusText(`${startSelected ? "Paviršius nuimtas" : "Paviršius pridėtas"} (trik.: ${changed}).`));
+      }
+
+      function computeTotalMeshArea() {
+        if (!innerViewer) return null;
+
+        // Bandome pasiekti three.js sceną per galimus candidate'us
+        const candScenes = [];
+        try { candScenes.push(innerViewer.scene); } catch (e) {}
+        try { candScenes.push(innerViewer.renderer && innerViewer.renderer.scene); } catch (e) {}
+        try { candScenes.push(innerViewer.renderer && innerViewer.renderer.GetScene && innerViewer.renderer.GetScene()); } catch (e) {}
+        try { candScenes.push(innerViewer.GetScene && innerViewer.GetScene()); } catch (e) {}
+
+        const scene = candScenes.find(s => s && s.traverse);
+        if (!scene) return null;
+
+        const cam = getThreeCam(); // tik ctor užtikrinimui
+        const Vector3 = (cam && cam.position && cam.position.constructor) ? cam.position.constructor : null;
+        if (typeof Vector3 !== "function") return null;
+
+        let total = 0;
+        let triCount = 0;
+
+        scene.traverse(obj => {
+          if (!obj || !obj.isMesh) return;
+          const geom = obj.geometry;
+          if (!geom || !geom.attributes || !geom.attributes.position) return;
+
+          const posAttr = geom.attributes.position;
+          const idx = (geom.index && geom.index.array) ? geom.index.array : null;
+
+          if (idx) {
+            for (let i = 0; i < idx.length; i += 3) {
+              const ia = idx[i], ib = idx[i+1], ic = idx[i+2];
+              const vA = new Vector3().fromBufferAttribute(posAttr, ia).applyMatrix4(obj.matrixWorld);
+              const vB = new Vector3().fromBufferAttribute(posAttr, ib).applyMatrix4(obj.matrixWorld);
+              const vC = new Vector3().fromBufferAttribute(posAttr, ic).applyMatrix4(obj.matrixWorld);
+              const a = triangleArea3D(vA, vB, vC);
+              if (a) { total += a; triCount += 1; }
+            }
+          } else {
+            for (let i = 0; i < posAttr.count; i += 3) {
+              const vA = new Vector3().fromBufferAttribute(posAttr, i).applyMatrix4(obj.matrixWorld);
+              const vB = new Vector3().fromBufferAttribute(posAttr, i+1).applyMatrix4(obj.matrixWorld);
+              const vC = new Vector3().fromBufferAttribute(posAttr, i+2).applyMatrix4(obj.matrixWorld);
+              const a = triangleArea3D(vA, vB, vC);
+              if (a) { total += a; triCount += 1; }
+            }
+          }
+        });
+
+        return { totalRaw: total, triCount };
+      }
+
       function onMeasureClick(button, mouseCoords) {
         if (!measureOn && !areaOn) return;
         if (button !== 1) return;
@@ -862,6 +1127,18 @@
 
         if (areaOn) {
           const nHit = normalizeIntersection(hit);
+
+          // AUTO region mode
+          if (areaMode === "region") {
+            P1v = pt; P1snap = st; S1f = sc;
+            P2v = null; P2snap = null; S2f = null;
+            hidePreview();
+            updateOverlay();
+            applyRegionToggle(nHit, pt, st);
+            return;
+          }
+
+          // SINGLE triangle toggle
           const tri = getTriangleWorldVerts(nHit);
           if (!tri) {
             setStatus("Plotas: nepavyko nuskaityti pasirinkto trikampio geometrijos.");
@@ -885,16 +1162,11 @@
           const already = areaSelectionByKey.has(key);
 
           if (already) {
-            // TOGGLE OFF: nuimam
             const old = areaSelectionByKey.get(key);
-            if (old && typeof old.areaRaw === "number") {
-              areaTotalRaw -= old.areaRaw;
-            }
+            if (old && typeof old.areaRaw === "number") areaTotalRaw -= old.areaRaw;
             areaSelectionByKey.delete(key);
             areaLast = { key, areaRaw: rawArea, pt, centroid, snap: st, action: '-' };
-            triOverlayDirty = true;
 
-            // markeriai
             P1v = pt; P1snap = st; S1f = sc;
             P2v = null; P2snap = null; S2f = null;
 
@@ -904,7 +1176,6 @@
             return;
           }
 
-          // TOGGLE ON: pridedam
           areaSelectionByKey.set(key, {
             areaRaw: rawArea,
             centroid: centroid,
@@ -915,7 +1186,6 @@
           areaTotalRaw += rawArea;
 
           areaLast = { key, areaRaw: rawArea, pt, centroid, snap: st, action: '+' };
-          triOverlayDirty = true;
 
           P1v = pt; P1snap = st; S1f = sc;
           P2v = null; P2snap = null; S2f = null;
@@ -1010,7 +1280,6 @@
 
         window.addEventListener('resize', () => {
           try { embedded.Resize(); } catch (e) {}
-          triOverlayDirty = true;
           if (measureOn || areaOn) updateOverlay();
         });
 
@@ -1027,6 +1296,37 @@
           else if (areaOn) clearArea(true);
         });
 
+        if (btnAreaRegion) {
+          btnAreaRegion.addEventListener('click', () => {
+            if (!areaOn) return;
+            areaMode = (areaMode === "region") ? "single" : "region";
+            updateButtons();
+            setStatus(areaStatusText("Režimas pakeistas."));
+          });
+        }
+
+        if (btnAreaAll) {
+          btnAreaAll.addEventListener('click', () => {
+            if (!areaOn) return;
+            setStatus("Visas plotas: skaičiuoju…");
+            // trumpas atidėjimas, kad UI spėtų persipiešti
+            setTimeout(() => {
+              const res = computeTotalMeshArea();
+              if (!res) {
+                setStatus("Visas plotas: nepavyko pasiekti scenos/mesh geometrijos (scene).");
+                return;
+              }
+              const totalScaled = res.totalRaw * MEASURE_SCALE * MEASURE_SCALE;
+              setStatus(
+                "Visas plotas (trianguliuotas):\n" +
+                `Trikampių: ${res.triCount}\n` +
+                `Plotas: ${fmt(totalScaled, 2)} ${MEASURE_UNIT}²\n\n` +
+                "Pastaba: tai mesh (trianguliacijos) plotas. Jei modelis turi vidinių paviršių – jie įeina."
+              );
+            }, 20);
+          });
+        }
+
         window.addEventListener('keydown', (ev) => {
           if (ev.key === 'Escape' && (measureOn || areaOn)) {
             if (measureOn) setMeasureMode(false);
@@ -1035,6 +1335,7 @@
         });
 
         setMeasureMode(false);
+        updateButtons();
       } catch (e) {
         setStatus("Klaida inicijuojant 3D peržiūrą:\n" + (e && e.message ? e.message : String(e)));
       }
@@ -1056,7 +1357,10 @@
     <div class="right">
       <button id="btnClear" class="ui-btn" type="button" style="display:none;">Išvalyti</button>
       <button id="btnMeasure" class="ui-btn" type="button">Matuoti</button>
+
       <button id="btnArea" class="ui-btn" type="button">Plotas</button>
+      <button id="btnAreaRegion" class="ui-btn" type="button" disabled>Paviršius</button>
+      <button id="btnAreaAll" class="ui-btn" type="button" disabled>Visas plotas</button>
     </div>
   </div>
 
