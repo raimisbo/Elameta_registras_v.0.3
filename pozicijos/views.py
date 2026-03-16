@@ -500,3 +500,44 @@ def pozicijos_import_csv(request):
             result = import_pozicijos_from_csv(uploaded, dry_run=dry_run)
 
     return render(request, "pozicijos/import_csv.html", {"result": result, "dry_run": dry_run})
+
+def api_ping(request: HttpRequest) -> JsonResponse:
+    return JsonResponse({
+        "status": "ok",
+        "message": "Labas is Django API",
+    })
+
+def api_pozicijos_preview(request: HttpRequest) -> JsonResponse:
+    qs = Pozicija.objects.order_by("-id")[:8]
+    rows = []
+
+    for pz in qs:
+        rows.append({
+            "id": pz.id,
+            "klientas": getattr(pz, "klientas", ""),
+            "projektas": getattr(pz, "projektas", ""),
+            "metalas": getattr(pz, "metalas", ""),
+            "padengimas": getattr(pz, "padengimas", ""),
+            "spalva": getattr(pz, "spalva", ""),
+            "kiekis": getattr(pz, "kiekis", None),
+            "mato_vnt": getattr(pz, "mato_vnt", ""),
+        })
+
+    return JsonResponse(rows, safe=False)
+
+def api_pozicija_detail(request: HttpRequest, pk: int) -> JsonResponse:
+    pozicija = get_object_or_404(Pozicija, pk=pk)
+
+    data = {
+        "id": pozicija.id,
+        "klientas": pozicija.klientas,
+        "projektas": pozicija.projektas,
+        "metalas": pozicija.metalas,
+        "paruosimas": getattr(pozicija, "paruosimas", ""),
+        "padengimas": getattr(pozicija, "padengimas", ""),
+        "spalva": getattr(pozicija, "spalva", ""),
+        "kiekis": getattr(pozicija, "kiekis", None),
+        "mato_vnt": getattr(pozicija, "mato_vnt", ""),
+        "pastabos": getattr(pozicija, "pastabos", ""),
+    }
+    return JsonResponse(data)
