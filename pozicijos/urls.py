@@ -7,6 +7,8 @@ from . import kainos_views
 app_name = "pozicijos"
 
 urlpatterns = [
+    path("api/filter-options/", views.api_pozicijos_filter_options, name="api_pozicijos_filter_options"),
+    path("api/summary/", views.api_pozicijos_summary, name="api_pozicijos_summary"),
     path("api/preview/", views.api_pozicijos_preview, name="api_pozicijos_preview"),
     path("api/<int:pk>/", views.api_pozicija_detail, name="api_pozicija_detail"),
     path("api/ping/", views.api_ping, name="api_ping"),
