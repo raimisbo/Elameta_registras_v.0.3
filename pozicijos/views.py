@@ -507,8 +507,73 @@ def api_ping(request: HttpRequest) -> JsonResponse:
         "message": "Labas is Django API",
     })
 
+def _apply_pozicijos_filters_from_request(request: HttpRequest, qs=None):
+    if qs is None:
+        qs = Pozicija.objects.all()
+
+    q = (request.GET.get("q") or "").strip()
+    metalas = (request.GET.get("metalas") or "").strip()
+    padengimas = (request.GET.get("padengimas") or "").strip()
+    spalva = (request.GET.get("spalva") or "").strip()
+
+    if q:
+        qs = qs.filter(
+            Q(klientas__icontains=q)
+            | Q(projektas__icontains=q)
+            | Q(metalas__icontains=q)
+            | Q(padengimas__icontains=q)
+            | Q(spalva__icontains=q)
+        )
+
+    if metalas:
+        qs = qs.filter(metalas__icontains=metalas)
+
+    if padengimas:
+        qs = qs.filter(padengimas__icontains=padengimas)
+
+    if spalva:
+        qs = qs.filter(spalva__icontains=spalva)
+
+    return qs
+
 def api_pozicijos_preview(request: HttpRequest) -> JsonResponse:
-    qs = Pozicija.objects.order_by("-id")[:8]
+    sort = (request.GET.get("sort") or "newest").strip()
+
+    try:
+        limit = int(request.GET.get("limit") or 8)
+    except Exception:
+        limit = 8
+
+    try:
+        offset = int(request.GET.get("offset") or 0)
+    except Exception:
+        offset = 0
+
+    if limit < 1:
+        limit = 8
+    if limit > 100:
+        limit = 100
+    if offset < 0:
+        offset = 0
+
+    qs = _apply_pozicijos_filters_from_request(request, Pozicija.objects.all())
+
+    if sort == "oldest":
+        qs = qs.order_by("id")
+    elif sort == "projektas_asc":
+        qs = qs.order_by("projektas", "-id")
+    elif sort == "projektas_desc":
+        qs = qs.order_by("-projektas", "-id")
+    elif sort == "klientas_asc":
+        qs = qs.order_by("klientas", "-id")
+    elif sort == "klientas_desc":
+        qs = qs.order_by("-klientas", "-id")
+    else:
+        qs = qs.order_by("-id")
+
+    total_count = qs.count()
+    qs = qs[offset:offset + limit]
+
     rows = []
 
     for pz in qs:
@@ -523,7 +588,12 @@ def api_pozicijos_preview(request: HttpRequest) -> JsonResponse:
             "mato_vnt": getattr(pz, "mato_vnt", ""),
         })
 
-    return JsonResponse(rows, safe=False)
+    return JsonResponse({
+        "count": total_count,
+        "limit": limit,
+        "offset": offset,
+        "results": rows,
+    })
 
 def api_pozicija_detail(request: HttpRequest, pk: int) -> JsonResponse:
     pozicija = get_object_or_404(Pozicija, pk=pk)
@@ -541,3 +611,47 @@ def api_pozicija_detail(request: HttpRequest, pk: int) -> JsonResponse:
         "pastabos": getattr(pozicija, "pastabos", ""),
     }
     return JsonResponse(data)
+
+def api_pozicijos_summary(request: HttpRequest) -> JsonResponse:
+    qs = _apply_pozicijos_filters_from_request(request, Pozicija.objects.all())
+
+    total = qs.count()
+    with_color = qs.exclude(spalva__isnull=True).exclude(spalva__exact="").count()
+    with_coating = qs.exclude(padengimas__isnull=True).exclude(padengimas__exact="").count()
+
+    return JsonResponse({
+        "total": total,
+        "with_color": with_color,
+        "with_coating": with_coating,
+    })
+
+def api_pozicijos_filter_options(request: HttpRequest) -> JsonResponse:
+    metalai = list(
+        Pozicija.objects.exclude(metalas__isnull=True)
+        .exclude(metalas__exact="")
+        .order_by("metalas")
+        .values_list("metalas", flat=True)
+        .distinct()
+    )
+
+    padengimai = list(
+        Pozicija.objects.exclude(padengimas__isnull=True)
+        .exclude(padengimas__exact="")
+        .order_by("padengimas")
+        .values_list("padengimas", flat=True)
+        .distinct()
+    )
+
+    spalvos = list(
+        Pozicija.objects.exclude(spalva__isnull=True)
+        .exclude(spalva__exact="")
+        .order_by("spalva")
+        .values_list("spalva", flat=True)
+        .distinct()
+    )
+
+    return JsonResponse({
+        "metalai": metalai,
+        "padengimai": padengimai,
+        "spalvos": spalvos,
+    })
