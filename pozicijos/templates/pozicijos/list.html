@@ -209,7 +209,8 @@
             <input class="th-filter" data-key="{{ c.key }}" data-filter-type="range" type="text"
                    placeholder="min..max, >=10, =15" value="{{ f|dict_get:c.key|default:'' }}">
             {% elif c.filter == "date" %}
-            <input class="th-filter" data-key="{{ c.key }}" data-filter-type="date" type="date"
+            <input class="th-filter" data-key="{{ c.key }}" data-filter-type="date" type="text"
+                   placeholder="YYYY-MM-DD, >=YYYY-MM-DD, YYYY-MM-DD..YYYY-MM-DD"
                    value="{{ f|dict_get:c.key|default:'' }}">
             {% else %}
               &nbsp;
@@ -329,10 +330,25 @@
 
   // ---- filtrų normalizacija ----
   function normalizeDate(v){
-    const s = (v || "").trim();
+    let s = (v || "").trim();
     if (!s) return "";
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-    return s;
+
+    // Leidžiami:
+    // 2026-05-03
+    // 2026-05-01..2026-05-31
+    // >=2026-05-01 <=2026-05-31 >2026-05-01 <2026-05-31 =2026-05-03
+    s = s.replace(/\s+/g, "");
+
+    const date = "\\d{4}-\\d{2}-\\d{2}";
+    const exactPat = new RegExp("^" + date + "$");
+    const rangePat = new RegExp("^" + date + "\\.\\." + date + "$");
+    const cmpPat = new RegExp("^(>=|<=|>|<|=)" + date + "$");
+
+    if (exactPat.test(s)) return s;
+    if (rangePat.test(s)) return s;
+    if (cmpPat.test(s)) return s;
+
+    return null;
   }
 
   function normalizeRange(v){
