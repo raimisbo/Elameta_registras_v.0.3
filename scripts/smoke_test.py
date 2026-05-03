@@ -39,87 +39,111 @@ def main() -> int:
 
     from django.test import Client
     from django.urls import reverse
-    from django.db import transaction
     from pozicijos.models import Pozicija
 
     results: list[CheckResult] = []
     resolved: dict[str, str] = {}
 
-    # Reverse baziniams
-    for name in (
-        "pozicijos:list",
-        "pozicijos:tbody",
-        "pozicijos:stats",
-        "pozicijos:create",
-        "pozicijos:import_csv",
-    ):
-        try:
-            resolved[name] = reverse(name)
-            results.append(CheckResult(f"reverse({name})", True, resolved[name]))
-        except Exception as e:
-            results.append(CheckResult(f"reverse({name})", False, repr(e)))
-
-    poz: Optional[Pozicija] = Pozicija.objects.order_by("id").first()
+    poz: Optional[Pozicija] = None
     created_here = False
-    if poz is None:
-        with transaction.atomic():
-            poz = Pozicija.objects.create(klientas="SMOKE", projektas="SMOKE")
-        created_here = True
-        results.append(CheckResult("create Pozicija (db seed)", True, f"id={poz.id}"))
+    temp_poz_id: Optional[int] = None
 
-    # Reverse su pk
-    for name, kwargs in (
-        ("pozicijos:detail", {"pk": poz.id}),
-        ("pozicijos:edit", {"pk": poz.id}),
-        ("pozicijos:brezinys_upload", {"pk": poz.id}),
-        ("pozicijos:brezinys_3d", {"pk": poz.id, "bid": 1}),  # bid gali neegzistuoti
-        ("pozicijos:proposal_prepare", {"pk": poz.id}),
-        ("pozicijos:pdf", {"pk": poz.id}),
-        ("pozicijos:kainos_list", {"pk": poz.id}),
-    ):
-        try:
-            resolved[name] = reverse(name, kwargs=kwargs)
-            results.append(CheckResult(f"reverse({name})", True, resolved[name]))
-        except Exception as e:
-            results.append(CheckResult(f"reverse({name})", False, repr(e)))
+    try:
+        # Reverse baziniams
+        for name in (
+            "pozicijos:list",
+            "pozicijos:tbody",
+            "pozicijos:stats",
+            "pozicijos:create",
+            "pozicijos:import_csv",
+        ):
+            try:
+                resolved[name] = reverse(name)
+                results.append(CheckResult(f"reverse({name})", True, resolved[name]))
+            except Exception as e:
+                results.append(CheckResult(f"reverse({name})", False, repr(e)))
 
-    c = Client()
+        poz = Pozicija.objects.order_by("id").first()
+        if poz is None:
+            poz = Pozicija.objects.create(
+                klientas="SMOKE_TEST_TEMP",
+                projektas="SMOKE_TEST_TEMP",
+                poz_kodas="SMOKE_TEST_TEMP",
+                poz_pavad="SMOKE_TEST_TEMP",
+            )
+            created_here = True
+            temp_poz_id = poz.id
+            results.append(CheckResult("create temporary Pozicija", True, f"id={poz.id}"))
 
-    def get_ok(name: str, url: str) -> None:
-        """
-        200/302 – gyva.
-        404 leidžiam tik ten, kur 404 reiškia “nėra duomenų” (pvz., brezinys_3d su dummy bid).
-        """
-        try:
-            r = c.get(url)
-            if r.status_code in (200, 302):
-                results.append(CheckResult(f"GET {name}", True, f"{r.status_code} {url}"))
-                return
+        # Reverse su pk
+        for name, kwargs in (
+            ("pozicijos:detail", {"pk": poz.id}),
+            ("pozicijos:edit", {"pk": poz.id}),
+            ("pozicijos:brezinys_upload", {"pk": poz.id}),
+            ("pozicijos:brezinys_3d", {"pk": poz.id, "bid": 1}),  # bid gali neegzistuoti
+            ("pozicijos:proposal_prepare", {"pk": poz.id}),
+            ("pozicijos:pdf", {"pk": poz.id}),
+            ("pozicijos:kainos_list", {"pk": poz.id}),
+        ):
+            try:
+                resolved[name] = reverse(name, kwargs=kwargs)
+                results.append(CheckResult(f"reverse({name})", True, resolved[name]))
+            except Exception as e:
+                results.append(CheckResult(f"reverse({name})", False, repr(e)))
 
-            if name == "pozicijos:brezinys_3d" and r.status_code == 404:
-                results.append(CheckResult(f"GET {name}", True, f"404 (no drawing in DB) {url}"))
-                return
+        c = Client()
 
-            results.append(CheckResult(f"GET {name}", False, f"{r.status_code} {url}"))
-        except Exception as e:
-            results.append(CheckResult(f"GET {name}", False, repr(e)))
+        def get_ok(name: str, url: str) -> None:
+            """
+            200/302 – gyva.
+            404 leidžiam tik ten, kur 404 reiškia “nėra duomenų”,
+            pvz., brezinys_3d su dummy bid.
+            """
+            try:
+                r = c.get(url)
+                if r.status_code in (200, 302):
+                    results.append(CheckResult(f"GET {name}", True, f"{r.status_code} {url}"))
+                    return
 
-    # GET baziniai
-    for key in ("pozicijos:list", "pozicijos:tbody", "pozicijos:stats", "pozicijos:import_csv"):
-        if key in resolved:
-            get_ok(key, resolved[key])
+                if name == "pozicijos:brezinys_3d" and r.status_code == 404:
+                    results.append(CheckResult(f"GET {name}", True, f"404 (no drawing in DB) {url}"))
+                    return
 
-    # GET su pk
-    for key in (
-        "pozicijos:detail",
-        "pozicijos:edit",
-        "pozicijos:proposal_prepare",
-        "pozicijos:pdf",
-        "pozicijos:kainos_list",
-        "pozicijos:brezinys_3d",
-    ):
-        if key in resolved:
-            get_ok(key, resolved[key])
+                results.append(CheckResult(f"GET {name}", False, f"{r.status_code} {url}"))
+            except Exception as e:
+                results.append(CheckResult(f"GET {name}", False, repr(e)))
+
+        # GET baziniai
+        for key in ("pozicijos:list", "pozicijos:tbody", "pozicijos:stats", "pozicijos:import_csv"):
+            if key in resolved:
+                get_ok(key, resolved[key])
+
+        # GET su pk
+        for key in (
+            "pozicijos:detail",
+            "pozicijos:edit",
+            "pozicijos:proposal_prepare",
+            "pozicijos:pdf",
+            "pozicijos:kainos_list",
+            "pozicijos:brezinys_3d",
+        ):
+            if key in resolved:
+                get_ok(key, resolved[key])
+
+    finally:
+        # Smoke testas negali palikti testinės Pozicija DB įrašo.
+        if created_here and temp_poz_id is not None:
+            try:
+                deleted_count, _ = Pozicija.objects.filter(id=temp_poz_id).delete()
+                results.append(
+                    CheckResult(
+                        "cleanup temporary Pozicija",
+                        deleted_count > 0,
+                        f"id={temp_poz_id}, deleted={deleted_count}",
+                    )
+                )
+            except Exception as e:
+                results.append(CheckResult("cleanup temporary Pozicija", False, repr(e)))
 
     print("\n== Smoke test results ==")
     for r in results:
@@ -128,9 +152,6 @@ def main() -> int:
     failed = [r for r in results if not r.ok]
     print("\n== Summary ==")
     print(f"Total: {len(results)} | Failed: {len(failed)}")
-
-    if created_here:
-        print(f"\nNOTE: Sukurta testinė Pozicija id={poz.id} (nešalinau).")
 
     return 1 if failed else 0
 
