@@ -62,3 +62,10 @@ htmlcov/
 
 # --- Node / frontend (if present) ---
 node_modules/
+.venvs/
+.env
+.env.*
+!.env.example
+*.pyc
+__MACOSX/
+staticfiles/
