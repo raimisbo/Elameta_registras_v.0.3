@@ -111,7 +111,7 @@ FIELD_LABELS = {
         "poz_kodas": "Brėžinio kodas",
         "poz_pavad": "Detalės pavadinimas",
         "metalas": "Metalo tipas",
-        "metalo_storis": "Metalo storis",
+        "metalo_storis": "Metalo storis (mm)",
         "plotas": "Plotas (m²)",
         "svoris": "Svoris (kg)",
         "x_mm": "X (mm)",
@@ -143,7 +143,7 @@ FIELD_LABELS = {
         "poz_kodas": "Drawing code",
         "poz_pavad": "Part name",
         "metalas": "Metal type",
-        "metalo_storis": "Metal thickness",
+        "metalo_storis": "Metal thickness (mm)",
         "plotas": "Area (m²)",
         "svoris": "Weight (kg)",
         "x_mm": "X (mm)",
@@ -216,7 +216,6 @@ OFFER_FIELD_ORDER = [
     "papildomos_paslaugos_aprasymas",
     "paslauga_ktl",
     "paslauga_miltai",
-    "paslauga_paruosimas",
     "paslaugu_pastabos",
 ]
 
