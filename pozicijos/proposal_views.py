@@ -275,6 +275,17 @@ def _build_field_rows(pozicija: Pozicija, lang: str) -> list[tuple[str, str]]:
                 rows.append((labels_map.get("metalo_storis", "Metalo storis"), ms))
             continue
 
+        # Pasiūlyme X/Y/Z rodome viena eilute per matmenys_xyz,
+        # ne trimis atskiromis eilutėmis.
+        if name in ("x_mm", "y_mm", "z_mm"):
+            continue
+
+        if name == "matmenys_xyz":
+            value_str = str(getattr(pozicija, "matmenys_xyz", "") or "").strip()
+            if value_str and value_str != "— x — x —":
+                rows.append((labels_map.get("matmenys_xyz", "Matmenys (XYZ)"), value_str))
+            continue
+
         try:
             field = pozicija._meta.get_field(name)
         except Exception:
@@ -617,6 +628,20 @@ def proposal_pdf(request, pk: int):
 
     font_regular, font_bold = _register_fonts()
     notes_style = ParagraphStyle(name="notes", fontName=font_regular, fontSize=9, leading=12)
+    main_label_style = ParagraphStyle(
+        name="main_label",
+        fontName=font_bold,
+        fontSize=10,
+        leading=12,
+        splitLongWords=1,
+    )
+    main_value_style = ParagraphStyle(
+        name="main_value",
+        fontName=font_regular,
+        fontSize=9,
+        leading=11,
+        splitLongWords=1,
+    )
     price_cell_style = ParagraphStyle(name="price_cell", fontName=font_regular, fontSize=8, leading=10)
 
     buf = io.BytesIO()
@@ -639,7 +664,7 @@ def proposal_pdf(request, pk: int):
         nonlocal y
         if y < bottom_margin + 14 * mm:
             new_page()
-        c.setFont(font_bold, 12)
+        c.setFont(font_bold, 13)
         c.setFillColor(colors.HexColor("#111827"))
         c.drawString(margin_left, y, title)
         y -= 4
@@ -770,10 +795,12 @@ def proposal_pdf(request, pk: int):
     if rows_for_table:
         table_data = []
         for lbl, val in rows_for_table:
-            if isinstance(val, str) and "\n" in val:
-                table_data.append([lbl, _make_paragraph(val, notes_style)])
-            else:
-                table_data.append([lbl, val])
+            # Paragraph leidžia ilgesniam tekstui, pvz. Pakavimas,
+            # automatiškai lūžti į kitą eilutę ir neišplaukti už puslapio ribų.
+            table_data.append([
+                _make_paragraph(str(lbl), main_label_style),
+                _make_paragraph(str(val or ""), main_value_style),
+            ])
 
         table_width = W - margin_left - margin_right
         col1 = 78 * mm  # daugiau vietos pavadinimams
