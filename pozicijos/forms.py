@@ -17,6 +17,10 @@ KTL_KABINIMO_CHOICES = [
     ("specialus", "Specialus"),
 ]
 
+KTL_PADENGIMAS_AUTO = "KTL"
+KTL_PADENGIMO_STANDARTAS_AUTO = "BASF CG 570"
+KTL_PADENGIMAS_LEGACY_AUTO = "KTL BASF CG 570"
+
 
 _RE_NUM = re.compile(r"^\d+(?:[.,]\d+)?$")
 _RE_RANGE = re.compile(r"^\d+(?:[.,]\d+)?\s*(?:-|\.\.|<>|<>)\s*\d+(?:[.,]\d+)?$")
@@ -301,9 +305,20 @@ class PozicijaForm(forms.ModelForm):
                 cleaned["paruosimas"] = "Gardobond 24T"
 
         if ktl:
-            if _is_empty(cleaned.get("padengimas", "")):
-                cleaned["padengimas"] = "KTL BASF CG 570"
-            if cleaned.get("padengimo_standartas", None) is None:
+            padengimas = (cleaned.get("padengimas") or "").strip()
+            padengimo_standartas = (cleaned.get("padengimo_standartas") or "").strip()
+
+            if _is_empty(padengimas) or padengimas == KTL_PADENGIMAS_LEGACY_AUTO:
+                cleaned["padengimas"] = KTL_PADENGIMAS_AUTO
+            if _is_empty(padengimo_standartas):
+                cleaned["padengimo_standartas"] = KTL_PADENGIMO_STANDARTAS_AUTO
+        else:
+            padengimas = (cleaned.get("padengimas") or "").strip()
+            padengimo_standartas = (cleaned.get("padengimo_standartas") or "").strip()
+
+            if padengimas in (KTL_PADENGIMAS_AUTO, KTL_PADENGIMAS_LEGACY_AUTO):
+                cleaned["padengimas"] = ""
+            if padengimo_standartas == KTL_PADENGIMO_STANDARTAS_AUTO:
                 cleaned["padengimo_standartas"] = ""
 
         miltu_sp = (cleaned.get("miltu_spalva") or "").strip()
