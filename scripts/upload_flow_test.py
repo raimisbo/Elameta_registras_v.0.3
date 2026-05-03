@@ -27,8 +27,36 @@ def _print(res: CheckResult) -> None:
     print(line)
 
 
+def _cleanup_stale_test_uploads(Pozicija, PozicijosBrezinys) -> int:
+    """
+    Išvalo ankstesnių blogos versijos upload_flow_test paliktus artefaktus.
+    Ribojam pagal pavadinimą ir failo vardą, kad neliestų normalių naudotojo brėžinių.
+    """
+    removed = 0
+
+    stale_breziniai = PozicijosBrezinys.objects.filter(
+        pavadinimas="SMOKE",
+        failas__icontains="smoke_upload",
+    )
+
+    for b in stale_breziniai:
+        b.delete()
+        removed += 1
+
+    stale_pozicijos = Pozicija.objects.filter(
+        klientas="UPLOAD_TEST",
+        projektas="UPLOAD_TEST",
+    )
+
+    for p in stale_pozicijos:
+        p.delete()
+        removed += 1
+
+    return removed
+
+
 def main() -> int:
-    import django  # noqa
+    import django
     django.setup()
 
     from django.conf import settings
@@ -36,7 +64,6 @@ def main() -> int:
         settings.ALLOWED_HOSTS.append("testserver")
 
     from django.core.files.uploadedfile import SimpleUploadedFile
-    from django.db import transaction
     from django.test import Client
     from django.urls import reverse
 
@@ -44,69 +71,76 @@ def main() -> int:
 
     results: list[CheckResult] = []
 
-    # 1) Pozicija (seed)
-    poz = Pozicija.objects.order_by("id").first()
-    created_here = False
-    if poz is None:
-        with transaction.atomic():
-            poz = Pozicija.objects.create(klientas="UPLOAD_TEST", projektas="UPLOAD_TEST")
-        created_here = True
-        results.append(CheckResult("create Pozicija (seed)", True, f"id={poz.id}"))
-    else:
-        results.append(CheckResult("use existing Pozicija", True, f"id={poz.id}"))
+    removed_stale = _cleanup_stale_test_uploads(Pozicija, PozicijosBrezinys)
+    results.append(CheckResult("cleanup stale test uploads", True, f"removed={removed_stale}"))
 
-    # 2) Upload endpoint
-    try:
-        url = reverse("pozicijos:brezinys_upload", kwargs={"pk": poz.id})
-        results.append(CheckResult("reverse upload endpoint", True, url))
-    except Exception as e:
-        results.append(CheckResult("reverse upload endpoint", False, repr(e)))
-        print("\n== Upload flow test results ==")
-        for r in results:
-            _print(r)
-        return 1
-
-    # 3) POST su failu "failas" (SVARBU: failą dedam į data dict)
-    c = Client()
-    before = PozicijosBrezinys.objects.filter(pozicija=poz).count()
-
-    upload = SimpleUploadedFile(
-        "smoke_upload.txt",
-        b"SMOKE UPLOAD CONTENT",
-        content_type="text/plain",
-    )
+    poz = None
 
     try:
-        r = c.post(
-            url,
-            data={
-                "pavadinimas": "SMOKE",
-                "failas": upload,  # <- teisingas būdas Django test client
-            },
-            follow=False,
+        # Testui kuriam atskirą laikiną poziciją, kad neprikabintume SMOKE failų prie realių įrašų.
+        poz = Pozicija.objects.create(
+            klientas="UPLOAD_TEST",
+            projektas="UPLOAD_TEST",
+            poz_kodas="UPLOAD_TEST",
+            poz_pavad="UPLOAD_TEST",
         )
-        ok_status = r.status_code in (200, 302)
-        results.append(CheckResult("POST upload (status)", ok_status, f"{r.status_code} {url}"))
-    except Exception as e:
-        results.append(CheckResult("POST upload (request)", False, repr(e)))
+        results.append(CheckResult("create temporary Pozicija", True, f"id={poz.id}"))
 
-    after = PozicijosBrezinys.objects.filter(pozicija=poz).count()
-    results.append(CheckResult("DB insert check", after == before + 1, f"before={before}, after={after}"))
+        try:
+            url = reverse("pozicijos:brezinys_upload", kwargs={"pk": poz.id})
+            results.append(CheckResult("reverse upload endpoint", True, url))
+        except Exception as e:
+            results.append(CheckResult("reverse upload endpoint", False, repr(e)))
+            raise
 
-    # papildomas diagnostinis rodiklis (jei kas nors filtruojasi netikėtai)
-    total = PozicijosBrezinys.objects.count()
-    results.append(CheckResult("DB total PozicijosBrezinys", total >= after, f"total={total}"))
+        c = Client()
+        before = PozicijosBrezinys.objects.filter(pozicija=poz).count()
+
+        upload = SimpleUploadedFile(
+            "smoke_upload.txt",
+            b"SMOKE UPLOAD CONTENT",
+            content_type="text/plain",
+        )
+
+        try:
+            r = c.post(
+                url,
+                data={
+                    "pavadinimas": "SMOKE",
+                    "failas": upload,
+                },
+                follow=False,
+            )
+            ok_status = r.status_code in (200, 302)
+            results.append(CheckResult("POST upload (status)", ok_status, f"{r.status_code} {url}"))
+        except Exception as e:
+            results.append(CheckResult("POST upload (request)", False, repr(e)))
+
+        after = PozicijosBrezinys.objects.filter(pozicija=poz).count()
+        results.append(CheckResult("DB insert check", after == before + 1, f"before={before}, after={after}"))
+
+        total_for_temp = PozicijosBrezinys.objects.filter(pozicija=poz).count()
+        results.append(CheckResult("temporary PozicijosBrezinys count", total_for_temp == 1, f"count={total_for_temp}"))
+
+    finally:
+        # Svarbiausia šito pataisymo dalis:
+        # testas privalo išvalyti viską, ką pats sukūrė.
+        if poz is not None:
+            try:
+                PozicijosBrezinys.objects.filter(pozicija=poz).delete()
+                poz.delete()
+                results.append(CheckResult("cleanup temporary upload data", True, f"pozicija_id={poz.id}"))
+            except Exception as e:
+                results.append(CheckResult("cleanup temporary upload data", False, repr(e)))
 
     print("\n== Upload flow test results ==")
     for r in results:
         _print(r)
 
     failed = [r for r in results if not r.ok]
+
     print("\n== Summary ==")
     print(f"Total: {len(results)} | Failed: {len(failed)}")
-
-    if created_here:
-        print(f"\nNOTE: Sukurta testinė Pozicija id={poz.id} (nešalinau).")
 
     return 1 if failed else 0
 
