@@ -82,6 +82,7 @@ LANG_LABELS = {
         "col_qty_to": "Kiekis iki",
         "col_valid_from": "Galioja nuo",
         "col_valid_to": "Galioja iki",
+        "col_note": "Pastaba",
     },
     "en": {
         "offer_title": "OFFER",
@@ -99,6 +100,7 @@ LANG_LABELS = {
         "col_qty_to": "Qty to",
         "col_valid_from": "Valid from",
         "col_valid_to": "Valid to",
+        "col_note": "Note",
     },
 }
 
@@ -601,7 +603,8 @@ def proposal_pdf(request, pk: int):
 
     brez = list(pozicija.breziniai.all().order_by("id"))
 
-    # PRIORITETAS: pirmiau tie brėžiniai, kurie turi preview
+    # PRIORITETAS: pasiūlyme rodome tik vieną pilotinį brėžinį.
+    # Pirmiau imamas pirmas brėžinys, turintis preview; jei preview nėra – pirmas failas.
     brez_with_preview = []
     brez_without_preview = []
     for b in brez:
@@ -610,10 +613,11 @@ def proposal_pdf(request, pk: int):
             brez_with_preview.append((b, pp))
         else:
             brez_without_preview.append((b, None))
-    brez_prepared = brez_with_preview + brez_without_preview
+    pilot_brez_prepared = (brez_with_preview + brez_without_preview)[:1]
 
     font_regular, font_bold = _register_fonts()
     notes_style = ParagraphStyle(name="notes", fontName=font_regular, fontSize=9, leading=12)
+    price_cell_style = ParagraphStyle(name="price_cell", fontName=font_regular, fontSize=8, leading=10)
 
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
@@ -721,7 +725,7 @@ def proposal_pdf(request, pk: int):
 
     hero_drawn = False
     hero_kind = "FILE"
-    hero_prepared = brez_prepared[0] if brez_prepared else None
+    hero_prepared = pilot_brez_prepared[0] if show_drawings and pilot_brez_prepared else None
 
     if hero_prepared:
         b0, hero_path = hero_prepared
@@ -811,8 +815,10 @@ def proposal_pdf(request, pk: int):
                 labels["col_qty_to"],
                 labels["col_valid_from"],
                 labels["col_valid_to"],
+                labels["col_note"],
             ]]
             for k in kainos:
+                price_note = (k.pastaba or "").strip()
                 rows.append([
                     "" if k.kaina is None else str(k.kaina),
                     str(k.matas or ""),
@@ -820,21 +826,26 @@ def proposal_pdf(request, pk: int):
                     ("+" if k.kiekis_nuo is not None else "—") if k.kiekis_iki is None else str(k.kiekis_iki),
                     k.galioja_nuo.strftime("%Y-%m-%d") if k.galioja_nuo else "—",
                     k.galioja_iki.strftime("%Y-%m-%d") if k.galioja_iki else "—",
+                    _make_paragraph(price_note, price_cell_style) if price_note else "",
                 ])
 
-            pt = Table(rows, colWidths=[32 * mm, 22 * mm, 22 * mm, 22 * mm, 30 * mm, 30 * mm], repeatRows=1)
+            pt = Table(
+                rows,
+                colWidths=[28 * mm, 16 * mm, 18 * mm, 18 * mm, 24 * mm, 24 * mm, 46 * mm],
+                repeatRows=1,
+            )
             pt.setStyle(
                 TableStyle(
                     [
-                        ("FONT", (0, 0), (-1, -1), font_regular, 9),
-                        ("FONT", (0, 0), (-1, 0), font_bold, 9),
+                        ("FONT", (0, 0), (-1, -1), font_regular, 8),
+                        ("FONT", (0, 0), (-1, 0), font_bold, 8),
                         ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e7eb")),
                         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f9fafb")),
                         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-                        ("TOPPADDING", (0, 0), (-1, -1), 6),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                        ("TOPPADDING", (0, 0), (-1, -1), 4),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                     ]
                 )
             )
@@ -848,63 +859,9 @@ def proposal_pdf(request, pk: int):
     # ------------------------------------------------------------------------
     # Drawings
     # ------------------------------------------------------------------------
-    if show_drawings:
-        draw_section_title(labels["section_drawings"])
-
-        if not brez_prepared:
-            c.setFont(font_regular, 9)
-            c.setFillColor(colors.HexColor("#6b7280"))
-            c.drawString(margin_left, y, labels["no_drawings"])
-            y -= 12
-        else:
-            # 3 miniatiūros per puslapį (kaip šablone), prioritetas su preview
-            thumbs = []
-            for b, preview_path in brez_prepared[:3]:
-                if preview_path:
-                    draw_path, temp_path = _prepare_image_for_pdf(preview_path)
-                    if temp_path:
-                        temp_files_to_cleanup.append(temp_path)
-                    thumbs.append((b, draw_path))
-                else:
-                    thumbs.append((b, None))
-
-            thumb_w = 58 * mm
-            thumb_h = 34 * mm
-            gap = 6 * mm
-
-            x = margin_left
-            for b, pth in thumbs:
-                if y < bottom_margin + thumb_h + 20 * mm:
-                    new_page()
-                    draw_section_title(labels["section_drawings"])
-
-                if pth and os.path.exists(pth):
-                    try:
-                        c.drawImage(
-                            ImageReader(pth),
-                            x,
-                            y - thumb_h,
-                            width=thumb_w,
-                            height=thumb_h,
-                            preserveAspectRatio=True,
-                            anchor="c",
-                            mask="auto",
-                        )
-                    except Exception:
-                        pth = None
-
-                if not pth:
-                    c.setStrokeColor(colors.HexColor("#e5e7eb"))
-                    c.rect(x, y - thumb_h, thumb_w, thumb_h, stroke=1, fill=0)
-                    c.setFont(font_bold, 11)
-                    c.setFillColor(colors.HexColor("#9ca3af"))
-                    c.drawCentredString(x + thumb_w / 2, y - thumb_h / 2, _drawing_kind(b))
-
-
-
-                x += thumb_w + gap
-
-            y -= (thumb_h + 8)
+    # Atskiro brėžinių miniatiūrų bloko PDF'e nebededame.
+    # Pilotinė / pirmoji miniatiūra rodoma viršuje dešinėje esančiame hero bloke,
+    # kad pasiūlymas neužsitęstų per kelis puslapius vien dėl brėžinių.
 
     # Cleanup temp images
     for p in temp_files_to_cleanup:
