@@ -28,8 +28,10 @@ class KainosEiluteForm(forms.ModelForm):
     - Jei eilutė nauja ir "efektyviai tuščia" -> leidžiam praeiti be klaidų ir jos neišsaugom.
     - Jei pildoma (užpildytas bent vienas iš esminių laukų) -> privaloma kaina.
       Kiekio intervalas (kiekis_nuo/kiekis_iki) yra PASIRENKAMAS:
-        * jei pildomas bent vienas iš jų -> privaloma abu ir nuo <= iki.
         * jei abu tušti -> leidžiam kainą įvesti be detalių skaičiaus.
+        * jei kiekis_nuo užpildytas, o kiekis_iki tuščias -> nuo kiekis_nuo ir be viršutinės ribos (pvz. 15+).
+        * jei abu užpildyti -> nuo <= iki.
+        * jei kiekis_iki užpildytas be kiekis_nuo -> klaida, nes UI nepalaiko vien tik viršutinės ribos.
     - Esamai (instance.pk) eilutei (jei ne DELETE) visada taikom privalomumą (neleidžiam paversti į „tuščią“).
     """
 
@@ -99,7 +101,10 @@ class KainosEiluteForm(forms.ModelForm):
                 w = self.fields[n].widget
                 w.input_type = "text"
                 w.attrs.setdefault("inputmode", "numeric")
-                w.attrs.setdefault("placeholder", "")
+                if n == "kiekis_nuo":
+                    w.attrs.setdefault("placeholder", "pvz. 15")
+                else:
+                    w.attrs.setdefault("placeholder", "tuščia = be ribos")
 
         # Leisti tuščias naujas eilutes (validuosim patys clean'e, kai "pildoma")
         for n in ("kaina", "kiekis_nuo", "kiekis_iki", "galioja_nuo", "galioja_iki", "pastaba"):
@@ -173,13 +178,15 @@ class KainosEiluteForm(forms.ModelForm):
         if _blank(kaina):
             self.add_error("kaina", "Privaloma užpildyti „Kaina“.")
 
-        # 2) Kiekio intervalas – neprivalomas. Bet jei pildomas bent vienas -> privaloma abu.
+        # 2) Kiekio intervalas – neprivalomas.
+        #    Nuo=15 ir Iki tuščias reiškia 15+ / be viršutinės ribos.
         has_any_qty = (not _blank(kn)) or (not _blank(kk))
         if has_any_qty:
             if _blank(kn):
-                self.add_error("kiekis_nuo", "Jei nurodai intervalą – privaloma užpildyti „Kiekis nuo“.")
-            if _blank(kk):
-                self.add_error("kiekis_iki", "Jei nurodai intervalą – privaloma užpildyti „Kiekis iki“.")
+                self.add_error(
+                    "kiekis_nuo",
+                    "Jei nurodai „Kiekis iki“ – privaloma užpildyti ir „Kiekis nuo“.",
+                )
 
             # jei abu yra – logika
             try:
@@ -187,7 +194,8 @@ class KainosEiluteForm(forms.ModelForm):
                     if int(kn) > int(kk):
                         self.add_error(
                             "kiekis_iki",
-                            "„Kiekis iki“ turi būti didesnis arba lygus „Kiekis nuo“.",
+                            "„Kiekis iki“ turi būti didesnis arba lygus „Kiekis nuo“. "
+                            "Jei reikia ribos be pabaigos, palik „Kiekis iki“ tuščią.",
                         )
             except Exception:
                 # jei vartotojas įvedė ne skaičių – Django pats paprastai duoda klaidą

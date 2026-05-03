@@ -239,7 +239,7 @@
         <td>{{ k.kaina|default:"" }}</td>
         <td>{{ k.matas|default:"" }}</td>
         <td>{% if k.kiekis_nuo is None %}—{% else %}{{ k.kiekis_nuo }}{% endif %}</td>
-        <td>{% if k.kiekis_iki is None %}—{% else %}{{ k.kiekis_iki }}{% endif %}</td>
+        <td>{% if k.kiekis_iki is None %}{% if k.kiekis_nuo is None %}—{% else %}+{% endif %}{% else %}{{ k.kiekis_iki }}{% endif %}</td>
         <td>{% if k.galioja_nuo %}{{ k.galioja_nuo|date:"Y-m-d" }}{% else %}—{% endif %}</td>
         <td>{% if k.galioja_iki %}{{ k.galioja_iki|date:"Y-m-d" }}{% else %}—{% endif %}</td>
       </tr>
@@ -368,7 +368,7 @@
         <td>{{ k.kaina|default:"" }}</td>
         <td>{{ k.matas|default:"" }}</td>
         <td>{% if k.kiekis_nuo is None %}—{% else %}{{ k.kiekis_nuo }}{% endif %}</td>
-        <td>{% if k.kiekis_iki is None %}—{% else %}{{ k.kiekis_iki }}{% endif %}</td>
+        <td>{% if k.kiekis_iki is None %}{% if k.kiekis_nuo is None %}—{% else %}+{% endif %}{% else %}{{ k.kiekis_iki }}{% endif %}</td>
         <td>{% if k.galioja_nuo %}{{ k.galioja_nuo|date:"Y-m-d" }}{% else %}—{% endif %}</td>
         <td>{% if k.galioja_iki %}{{ k.galioja_iki|date:"Y-m-d" }}{% else %}—{% endif %}</td>
       </tr>

@@ -119,7 +119,7 @@
               <td>{% if h.kaina is None %}—{% else %}{{ h.kaina }}{% endif %}</td>
               <td>{{ h.matas|default:"" }}</td>
               <td>{% if h.kiekis_nuo is None %}—{% else %}{{ h.kiekis_nuo }}{% endif %}</td>
-              <td>{% if h.kiekis_iki is None %}—{% else %}{{ h.kiekis_iki }}{% endif %}</td>
+              <td>{% if h.kiekis_iki is None %}{% if h.kiekis_nuo is None %}—{% else %}+{% endif %}{% else %}{{ h.kiekis_iki }}{% endif %}</td>
               <td>{{ h.busena|default:"—" }}</td>
               <td>{% if h.galioja_nuo %}{{ h.galioja_nuo|date:"Y-m-d" }}{% else %}—{% endif %}</td>
               <td>{% if h.galioja_iki %}{{ h.galioja_iki|date:"Y-m-d" }}{% else %}—{% endif %}</td>

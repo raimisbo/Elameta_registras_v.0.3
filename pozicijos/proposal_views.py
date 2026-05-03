@@ -817,7 +817,7 @@ def proposal_pdf(request, pk: int):
                     "" if k.kaina is None else str(k.kaina),
                     str(k.matas or ""),
                     "—" if k.kiekis_nuo is None else str(k.kiekis_nuo),
-                    "—" if k.kiekis_iki is None else str(k.kiekis_iki),
+                    ("+" if k.kiekis_nuo is not None else "—") if k.kiekis_iki is None else str(k.kiekis_iki),
                     k.galioja_nuo.strftime("%Y-%m-%d") if k.galioja_nuo else "—",
                     k.galioja_iki.strftime("%Y-%m-%d") if k.galioja_iki else "—",
                 ])
