@@ -33,6 +33,12 @@ COPYFILE_DISABLE=1 zip -r "$OUT_ZIP" . \
   -x "./env/*" \
   -x "staticfiles/*" \
   -x "./staticfiles/*" \
+  -x "media" \
+  -x "./media" \
+  -x "media/" \
+  -x "./media/" \
+  -x "media/*" \
+  -x "./media/*" \
   -x "__pycache__/*" \
   -x "*/__pycache__/*" \
   -x "*.pyc" \
