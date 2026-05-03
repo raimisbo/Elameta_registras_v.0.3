@@ -63,6 +63,10 @@ echo "== Ajax contract test =="
 python scripts/ajax_contract_test.py
 
 echo
+echo "== Filter regression test =="
+python scripts/filter_regression_test.py
+
+echo
 echo "== Upload flow test =="
 python scripts/upload_flow_test.py
 
