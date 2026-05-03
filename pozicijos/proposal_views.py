@@ -294,6 +294,12 @@ def _build_field_rows(pozicija: Pozicija, lang: str) -> list[tuple[str, str]]:
         if value in (None, ""):
             continue
 
+        # Pasiūlyme nerodome „Miltai — Nėra“.
+        # Jei Miltai pažymėti, eilutė lieka rodoma kaip „Miltai — Yra“.
+        # KTL ir Paruošimo logikos čia neliečiame.
+        if name == "paslauga_miltai" and value is False:
+            continue
+
         label = labels_map.get(name) or (f"Field: {name}" if lang == "en" else str(field.verbose_name or name).capitalize())
 
         if isinstance(value, bool):
