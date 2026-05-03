@@ -7,6 +7,7 @@ from io import TextIOWrapper
 from typing import List
 
 from django.core.exceptions import ValidationError
+from django.db import models
 
 from ..models import Pozicija
 from ..schemas.columns import COLUMNS
@@ -57,6 +58,30 @@ def _build_header_map(fieldnames: list[str]) -> dict[str, str]:
     return mapping
 
 
+def _empty_value_for_field(field):
+    """
+    Teisinga tuščio CSV langelio reikšmė pagal Django lauko tipą.
+
+    - null=True laukai -> None
+    - CharField/TextField tipo laukai -> ""
+    - laukai su default -> field.get_default()
+    - kiti laukai -> None, kad full_clean() pagautų netinkamus atvejus
+    """
+    if getattr(field, "null", False):
+        return None
+
+    if isinstance(field, (models.CharField, models.TextField)):
+        return ""
+
+    if field.has_default():
+        return field.get_default()
+
+    if getattr(field, "empty_strings_allowed", False):
+        return ""
+
+    return None
+
+
 def import_pozicijos_from_csv(uploaded_file, *, dry_run: bool = False) -> ImportResult:
     """
     Vienkartinis migracijos importas.
@@ -68,7 +93,10 @@ def import_pozicijos_from_csv(uploaded_file, *, dry_run: bool = False) -> Import
       - jei tokia pozicija yra -> atnaujinam laukus,
       - jei nėra -> sukuriam naują.
 
-    Tušti langeliai -> nustatomi į NULL/None.
+    Tušti langeliai nustatomi pagal lauko tipą:
+      - null=True laukams -> None
+      - CharField/TextField laukams -> ""
+      - laukams su default -> default reikšmė
     """
     result = ImportResult()
 
@@ -116,8 +144,9 @@ def import_pozicijos_from_csv(uploaded_file, *, dry_run: bool = False) -> Import
                 continue
 
             if raw == "":
-                # tuščias langelis – nunulinam
-                setattr(obj, field_name, None)
+                # Tuščias langelis negali būti aklai verčiamas į None:
+                # CharField/TextField be null=True turi gauti "", ne NULL.
+                setattr(obj, field_name, _empty_value_for_field(field))
                 continue
 
             try:
