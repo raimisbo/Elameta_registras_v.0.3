@@ -16,16 +16,20 @@ class KainaEurSyncResult:
 
 def sync_pozicija_kaina_eur(pozicija: Pozicija, *, save: bool = True) -> KainaEurSyncResult:
     """
-    Vienintelis tiesos šaltinis Pozicija.kaina_eur.
+    Perskaičiuoja pozicijos aktualią kainą pagal KainosEilute.
 
-    Sutarta taisyklė:
-      - Pozicija.kaina_eur = pirmos KainosEilute eilutės kaina,
+    Dabartinėje modelio versijoje Pozicija.kaina_eur yra @property, ne DB laukas.
+    Todėl čia nieko nerašome į Pozicija lentelę. Funkcija palikta kaip vienas
+    oficialus perskaičiavimo / suderinamumo taškas po kainų įrašų keitimo.
+
+    Taisyklė:
+      - kaina_eur = pirmos aktualios KainosEilute eilutės kaina,
         kai KainosEilute.busena == 'aktuali', rikiuojant:
           prioritetas ASC, created DESC.
-      - Jei aktualių eilučių nėra (arba jų kaina NULL) -> None.
+      - Jei aktualių eilučių nėra arba jų kaina NULL -> None.
 
-    Pastaba: ši funkcija turi būti kviečiama po bet kokio kainų įrašo
-    sukūrimo/keitimo/trynimo/„set aktuali“ veiksmo.
+    Argumentas save paliktas suderinamumui su senais kvietimais. Kadangi
+    kaina_eur nėra DB laukas, save=True nebeatlieka Pozicija.save().
     """
     old = pozicija.kaina_eur
 
@@ -38,9 +42,5 @@ def sync_pozicija_kaina_eur(pozicija: Pozicija, *, save: bool = True) -> KainaEu
     new = getattr(akt, "kaina", None) if akt else None
 
     changed = (old != new)
-
-    if save and changed:
-        pozicija.kaina_eur = new
-        pozicija.save(update_fields=["kaina_eur", "updated"])
 
     return KainaEurSyncResult(old=old, new=new, changed=changed)
