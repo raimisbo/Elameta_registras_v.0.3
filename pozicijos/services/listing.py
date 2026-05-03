@@ -359,6 +359,20 @@ def apply_filters(qs: QuerySet, request) -> QuerySet:
         if not raw_key or not value:
             continue
 
+        # Metalo storis sąraše rodomas kaip virtualus display laukas,
+        # bet realiai saugomas per:
+        #   - naują struktūrą: MetaloStorisEilute.storis_mm
+        #   - legacy lauką: Pozicija.metalo_storis
+        if raw_key == "metalo_storiai_display":
+            q_new = build_numeric_range_q("metalo_storio_eilutes__storis_mm", value)
+            q_legacy = build_numeric_range_q("metalo_storis", value)
+
+            if q_new is None or q_legacy is None:
+                return qs.none()
+
+            qs = qs.filter(q_new | q_legacy).distinct()
+            continue
+
         field = resolve_field_key(raw_key, model_fields)
         if not field:
             # Nežinomas key -> ignoruojam
