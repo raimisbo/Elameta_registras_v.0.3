@@ -56,6 +56,35 @@ def _safe_int(value, default: int) -> int:
         return default
 
 
+def _filter_values_from_request(request) -> dict[str, str]:
+    """
+    Template filtrų laukeliams paruošia paprastą žodyną.
+
+    GET parametrai ateina kaip:
+      f[klientas]=ABC
+      f[metalas]=Plienas
+
+    O template naudoja:
+      f|dict_get:c.key
+
+    Todėl čia paverčiame į:
+      {"klientas": "ABC", "metalas": "Plienas"}
+    """
+    result: dict[str, str] = {}
+
+    for key, value in request.GET.items():
+        if not key.startswith("f[") or not key.endswith("]"):
+            continue
+
+        raw_key = key[2:-1].strip()
+        value = (value or "").strip()
+
+        if raw_key and value:
+            result[raw_key] = value
+
+    return result
+
+
 def _base_list_qs():
     """
     Centralizuojam: sąrašui anotacijos (brez_count + kainų min/max).
@@ -141,7 +170,7 @@ def pozicijos_list(request):
         "items": items,
         "q": q,
         "page_size": page_size,
-        "f": request.GET,
+        "f": _filter_values_from_request(request),
         "current_sort": current_sort,
         "current_dir": current_dir,
     }
