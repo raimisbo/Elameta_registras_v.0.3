@@ -1,10 +1,12 @@
 # pozicijos/services/listing.py
 from __future__ import annotations
 
+import re
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional
 
 from django.db.models import Q, QuerySet
+from django.utils.dateparse import parse_date
 
 from ..schemas.columns import COLUMNS
 
@@ -45,10 +47,20 @@ DECIMAL_RANGE_FIELDS = {
     "plotas",
     "svoris",
     "kainos_eilutes__kaina",  # mapintas iš kaina_eur
+    "miltai_kiekis_per_valanda",
 }
 
 INT_RANGE_FIELDS = {
     "atlikimo_terminas",
+    "ktl_detaliu_kiekis_reme",
+    "ktl_faktinis_kiekis_reme",
+    "miltai_detaliu_kiekis_reme",
+    "miltai_faktinis_kiekis_reme",
+}
+
+DATE_FILTER_FIELDS = {
+    "created",
+    "updated",
 }
 
 
@@ -78,26 +90,44 @@ def resolve_field_key(raw_key: str, model_field_names: set[str]) -> Optional[str
     return mapped
 
 
+def _split_numeric_range(raw: str) -> Optional[tuple[str, str]]:
+    """
+    Priima abu UI palaikomus intervalų formatus:
+      10..20
+      10-20
+
+    Minusas prie skaičiaus irgi leidžiamas, pvz. -5-10 arba -10--5.
+    """
+    if ".." in raw:
+        left, right = raw.split("..", 1)
+        return left.strip(), right.strip()
+
+    m = re.match(r"^([+-]?\d+(?:\.\d+)?)-([+-]?\d+(?:\.\d+)?)$", raw)
+    if m:
+        return m.group(1), m.group(2)
+
+    return None
+
+
 def build_numeric_range_q(field_name: str, expr: str) -> Optional[Q]:
     """
     Decimal filtro interpretacija:
-      10..20, >5, >=5, <12.5, <=12.5, 15, =15
+      10..20, 10-20, >5, >=5, <12.5, <=12.5, 15, =15
     Jei formatas blogas -> None
     """
     raw = (expr or "").strip()
     if not raw:
         return None
 
-    raw = raw.replace(",", ".")
+    raw = raw.replace(",", ".").replace(" ", "")
 
     min_val = None
     max_val = None
 
     try:
-        if ".." in raw:
-            left, right = raw.split("..", 1)
-            left = left.strip()
-            right = right.strip()
+        range_parts = _split_numeric_range(raw)
+        if range_parts is not None:
+            left, right = range_parts
             if left:
                 min_val = Decimal(left)
             if right:
@@ -144,21 +174,22 @@ def build_numeric_range_q(field_name: str, expr: str) -> Optional[Q]:
 def build_int_range_q(field_name: str, expr: str) -> Optional[Q]:
     """
     Integer filtro interpretacija:
-      10..20, >5, >=5, <12, <=12, 15, =15
+      10..20, 10-20, >5, >=5, <12, <=12, 15, =15
     Jei formatas blogas -> None
     """
     raw = (expr or "").strip()
     if not raw:
         return None
 
+    raw = raw.replace(" ", "")
+
     min_val = None
     max_val = None
 
     try:
-        if ".." in raw:
-            left, right = raw.split("..", 1)
-            left = left.strip()
-            right = right.strip()
+        range_parts = _split_numeric_range(raw)
+        if range_parts is not None:
+            left, right = range_parts
             if left:
                 min_val = int(left)
             if right:
@@ -199,6 +230,82 @@ def build_int_range_q(field_name: str, expr: str) -> Optional[Q]:
         q &= Q(**{f"{field_name}__gte": min_val})
     if max_val is not None:
         q &= Q(**{f"{field_name}__lte": max_val})
+    return q
+
+
+def build_date_q(field_name: str, expr: str) -> Optional[Q]:
+    """
+    Date/DateTime filtro interpretacija:
+      2026-05-03, 2026-05-01..2026-05-31, >=2026-05-01, <=2026-05-31
+
+    Sąrašo stulpeliai created/updated yra DateTimeField, todėl filtruojam per __date.
+    """
+    raw = (expr or "").strip()
+    if not raw:
+        return None
+
+    min_val = None
+    max_val = None
+    exact_val = None
+
+    try:
+        if ".." in raw:
+            left, right = raw.split("..", 1)
+            left = left.strip()
+            right = right.strip()
+            if left:
+                min_val = parse_date(left)
+            if right:
+                max_val = parse_date(right)
+            if (left and min_val is None) or (right and max_val is None):
+                return None
+
+        elif raw.startswith(">="):
+            min_val = parse_date(raw[2:].strip())
+            if min_val is None:
+                return None
+
+        elif raw.startswith("<="):
+            max_val = parse_date(raw[2:].strip())
+            if max_val is None:
+                return None
+
+        elif raw.startswith("="):
+            exact_val = parse_date(raw[1:].strip())
+            if exact_val is None:
+                return None
+
+        elif raw[0] in (">", "<"):
+            op = raw[0]
+            val_str = raw[1:].strip()
+            if not val_str:
+                return None
+            parsed = parse_date(val_str)
+            if parsed is None:
+                return None
+            if op == ">":
+                min_val = parsed
+            else:
+                max_val = parsed
+
+        else:
+            exact_val = parse_date(raw)
+            if exact_val is None:
+                return None
+
+    except (ValueError, IndexError):
+        return None
+
+    date_lookup = f"{field_name}__date"
+
+    if exact_val is not None:
+        return Q(**{date_lookup: exact_val})
+
+    q = Q()
+    if min_val is not None:
+        q &= Q(**{f"{date_lookup}__gte": min_val})
+    if max_val is not None:
+        q &= Q(**{f"{date_lookup}__lte": max_val})
     return q
 
 
@@ -279,6 +386,14 @@ def apply_filters(qs: QuerySet, request) -> QuerySet:
             if q_int is None:
                 return qs.none()
             qs = qs.filter(q_int)
+            continue
+
+        # Date / DateTime range
+        if field in DATE_FILTER_FIELDS:
+            q_date = build_date_q(field, value)
+            if q_date is None:
+                return qs.none()
+            qs = qs.filter(q_date)
             continue
 
         # fallback exact
