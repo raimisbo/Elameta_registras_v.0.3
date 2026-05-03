@@ -5,6 +5,7 @@ import os
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.text import slugify
 from simple_history.models import HistoricalRecords
@@ -245,6 +246,22 @@ class Pozicija(models.Model):
             )
         except (InvalidOperation, TypeError):
             return None
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        for field_name in ("ktl_ilgis_mm", "ktl_aukstis_mm", "ktl_gylis_mm"):
+            value = getattr(self, field_name, None)
+            if value is None:
+                continue
+            try:
+                decimal_value = Decimal(value)
+            except (InvalidOperation, TypeError, ValueError):
+                continue
+            if decimal_value != decimal_value.to_integral_value():
+                errors[field_name] = "Detalių išdėstymas rėme turi būti sveikas skaičius, pvz. 2, 3, 4."
+        if errors:
+            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         if self.ktl_ilgis_mm is not None and self.ktl_aukstis_mm is not None and self.ktl_gylis_mm is not None:

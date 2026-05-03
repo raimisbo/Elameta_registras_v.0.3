@@ -86,7 +86,7 @@
       v = String(v).trim().replace(",", ".");
       if (!v) return NaN;
       var n = Number(v);
-      return Number.isFinite(n) ? n : NaN;
+      return Number.isFinite(n) && Number.isInteger(n) ? n : NaN;
     }
 
     function pretty(n) {

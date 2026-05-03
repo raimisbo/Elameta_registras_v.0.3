@@ -92,6 +92,39 @@ class PozicijaForm(forms.ModelForm):
         widget=forms.TextInput(attrs={"placeholder": "pvz. 12-13, 3<>6, 33 +/- 5"}),
     )
 
+    # Detalių išdėstymas rėme: tik sveiki skaičiai.
+    # Modelyje laukai lieka DecimalField dėl esamos DB schemos, bet forma nebeleidžia 2.6 / 2,6.
+    ktl_ilgis_mm = forms.IntegerField(
+        required=False,
+        label="I",
+        min_value=0,
+        error_messages={
+            "invalid": "Įveskite sveiką skaičių, pvz. 2.",
+            "min_value": "Reikšmė negali būti neigiama.",
+        },
+        widget=forms.NumberInput(attrs={"min": 0, "step": 1, "inputmode": "numeric"}),
+    )
+    ktl_aukstis_mm = forms.IntegerField(
+        required=False,
+        label="A",
+        min_value=0,
+        error_messages={
+            "invalid": "Įveskite sveiką skaičių, pvz. 3.",
+            "min_value": "Reikšmė negali būti neigiama.",
+        },
+        widget=forms.NumberInput(attrs={"min": 0, "step": 1, "inputmode": "numeric"}),
+    )
+    ktl_gylis_mm = forms.IntegerField(
+        required=False,
+        label="G",
+        min_value=0,
+        error_messages={
+            "invalid": "Įveskite sveiką skaičių, pvz. 4.",
+            "min_value": "Reikšmė negali būti neigiama.",
+        },
+        widget=forms.NumberInput(attrs={"min": 0, "step": 1, "inputmode": "numeric"}),
+    )
+
     class Meta:
         model = Pozicija
         fields = [
@@ -176,6 +209,18 @@ class PozicijaForm(forms.ModelForm):
             self.fields["ktl_ilgis_mm"].label = "I"
             self.fields["ktl_aukstis_mm"].label = "A"
             self.fields["ktl_gylis_mm"].label = "G"
+
+        # Esami DecimalField įrašai, pvz. 2.0, formoje rodomi kaip 2.
+        for _name in ("ktl_ilgis_mm", "ktl_aukstis_mm", "ktl_gylis_mm"):
+            _value = getattr(self.instance, _name, None)
+            if _value is None:
+                continue
+            try:
+                _decimal_value = Decimal(_value)
+                if _decimal_value == _decimal_value.to_integral_value():
+                    self.initial[_name] = int(_decimal_value)
+            except (InvalidOperation, TypeError, ValueError):
+                pass
 
         # initial: pirmiau txt, jei nėra – numeric
         if self.instance and self.instance.pk:
