@@ -73,15 +73,27 @@
 
   // =========================
   // KTL I×A×G sandauga preview (be .0)
+  // + automatinis „KTL detalių kiekis rėme“ pildymas.
+  //
+  // Logika:
+  // - jei kiekio laukas tuščias -> įrašom I×A×G;
+  // - jei kiekio lauke yra ankstesnė automatinė sandauga -> perskaičiuojam;
+  // - jei vartotojas įrašė kitą reikšmę ranka -> neperrašom.
   // =========================
   function initKtlSandaugaPreview() {
     var iEl = $("#id_ktl_ilgis_mm");
     var aEl = $("#id_ktl_aukstis_mm");
     var gEl = $("#id_ktl_gylis_mm");
     var out = $("#ktl-sandauga-preview");
+    var qtyEl =
+      document.getElementById("id_ktl_detaliu_kiekis_reme") ||
+      document.querySelector('[name="ktl_detaliu_kiekis_reme"]');
+
     if (!iEl || !aEl || !gEl || !out) return;
 
-    function parseNum(v) {
+    var lastAutoProductText = "";
+
+    function parseIntStrict(v) {
       if (v == null) return NaN;
       v = String(v).trim().replace(",", ".");
       if (!v) return NaN;
@@ -89,29 +101,83 @@
       return Number.isFinite(n) && Number.isInteger(n) ? n : NaN;
     }
 
-    function pretty(n) {
-      if (!Number.isFinite(n)) return "";
-      // be nereikalingo ".0"
-      if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n));
-      return String(n);
+    function productText() {
+      var i = parseIntStrict(iEl.value);
+      var a = parseIntStrict(aEl.value);
+      var g = parseIntStrict(gEl.value);
+
+      if (!Number.isFinite(i) || !Number.isFinite(a) || !Number.isFinite(g)) {
+        return "";
+      }
+
+      return String(i * a * g);
     }
 
     function render() {
-      var i = parseNum(iEl.value);
-      var a = parseNum(aEl.value);
-      var g = parseNum(gEl.value);
-      if (!Number.isFinite(i) || !Number.isFinite(a) || !Number.isFinite(g)) {
-        out.value = "";
+      var prodText = productText();
+      out.value = prodText;
+
+      if (!qtyEl) {
+        lastAutoProductText = prodText;
         return;
       }
-      var prod = i * a * g;
-      out.value = pretty(prod);
+
+      var current = String(qtyEl.value || "").trim();
+
+      // Jei negalime suskaičiuoti, išvalom tik automatinę reikšmę.
+      if (!prodText) {
+        if (qtyEl.dataset.ktlFrameQtyAuto === "1") {
+          qtyEl.value = "";
+        }
+        lastAutoProductText = "";
+        return;
+      }
+
+      var shouldAutofill =
+        current === "" ||
+        qtyEl.dataset.ktlFrameQtyAuto === "1" ||
+        current === lastAutoProductText;
+
+      if (shouldAutofill) {
+        qtyEl.value = prodText;
+        qtyEl.dataset.ktlFrameQtyAuto = "1";
+      }
+
+      lastAutoProductText = prodText;
     }
+
+    // Pradinė būsena:
+    // jei lauke jau yra ta pati reikšmė kaip I×A×G, laikom ją automatine.
+    var initialProdText = productText();
+    if (qtyEl && initialProdText && String(qtyEl.value || "").trim() === initialProdText) {
+      qtyEl.dataset.ktlFrameQtyAuto = "1";
+    }
+    lastAutoProductText = initialProdText;
 
     [iEl, aEl, gEl].forEach(function (el) {
       el.addEventListener("input", render);
       el.addEventListener("change", render);
     });
+
+    if (qtyEl) {
+      qtyEl.addEventListener("input", function () {
+        var current = String(qtyEl.value || "").trim();
+
+        // Jei vartotojas ištrina lauką, leidžiam automatikai vėl pildyti.
+        if (current === "") {
+          qtyEl.dataset.ktlFrameQtyAuto = "1";
+          return;
+        }
+
+        // Jei vartotojas įrašo būtent dabartinę sandaugą, ją vis dar laikom automatine.
+        // Jei įrašo kitą reikšmę — tai rankinis perrašymas.
+        if (current === productText()) {
+          qtyEl.dataset.ktlFrameQtyAuto = "1";
+        } else {
+          delete qtyEl.dataset.ktlFrameQtyAuto;
+        }
+      });
+    }
 
     render();
   }

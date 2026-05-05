@@ -326,6 +326,19 @@ class PozicijaForm(forms.ModelForm):
             if padengimo_standartas == KTL_PADENGIMO_STANDARTAS_AUTO:
                 cleaned["padengimo_standartas"] = ""
 
+        # KTL detalių kiekis rėme:
+        # jei vartotojas paliko tuščią, automatiškai imame I×A×G.
+        # Jei vartotojas įrašė ranka – jo reikšmės neperrašome.
+        if ktl and cleaned.get("ktl_detaliu_kiekis_reme") is None:
+            ktl_i = cleaned.get("ktl_ilgis_mm")
+            ktl_a = cleaned.get("ktl_aukstis_mm")
+            ktl_g = cleaned.get("ktl_gylis_mm")
+            if ktl_i is not None and ktl_a is not None and ktl_g is not None:
+                try:
+                    cleaned["ktl_detaliu_kiekis_reme"] = int(ktl_i) * int(ktl_a) * int(ktl_g)
+                except (TypeError, ValueError):
+                    pass
+
         miltu_sp = (cleaned.get("miltu_spalva") or "").strip()
         if miltai and miltu_sp:
             cleaned["spalva"] = miltu_sp
