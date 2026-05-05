@@ -12,6 +12,7 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils import timezone
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -61,6 +62,19 @@ def _make_paragraph(text: str, style: ParagraphStyle) -> Paragraph:
     return Paragraph(safe, style)
 
 
+def _fmt_local_date(value) -> str:
+    if not value:
+        return ""
+    try:
+        if timezone.is_aware(value):
+            value = timezone.localtime(value)
+        if hasattr(value, "strftime"):
+            return value.strftime("%Y-%m-%d")
+    except Exception:
+        pass
+    return str(value)[:10]
+
+
 # ============================================================================
 # Labels / translations
 # ============================================================================
@@ -69,6 +83,7 @@ LANG_LABELS = {
     "lt": {
         "offer_title": "PASIŪLYMAS",
         "date_label": "Data",
+        "request_date_label": "Užklausos data",
         "section_main": "Pagrindinė informacija",
         "section_prices": "Kainos (aktualios eilutės)",
         "section_drawings": "Brėžinių miniatiūros",
@@ -87,6 +102,7 @@ LANG_LABELS = {
     "en": {
         "offer_title": "OFFER",
         "date_label": "Date",
+        "request_date_label": "Request date",
         "section_main": "Main information",
         "section_prices": "Prices (active lines)",
         "section_drawings": "Drawing thumbnails",
@@ -108,7 +124,7 @@ FIELD_LABELS = {
     "lt": {
         "klientas": "Klientas",
         "projektas": "Projektas",
-        "poz_kodas": "Brėžinio kodas",
+        "poz_kodas": "Detalės kodas",
         "poz_pavad": "Detalės pavadinimas",
         "metalas": "Metalo tipas",
         "metalo_storis": "Metalo storis (mm)",
@@ -140,7 +156,7 @@ FIELD_LABELS = {
     "en": {
         "klientas": "Customer",
         "projektas": "Project",
-        "poz_kodas": "Drawing code",
+        "poz_kodas": "Part code",
         "poz_pavad": "Part name",
         "metalas": "Metal type",
         "metalo_storis": "Metal thickness (mm)",
@@ -613,6 +629,10 @@ def proposal_pdf(request, pk: int):
     kainos = list(kainos_qs)
 
     field_rows = _build_field_rows(pozicija, lang)
+
+    request_date = _fmt_local_date(getattr(pozicija, "created", None))
+    if request_date:
+        field_rows.insert(0, (labels.get("request_date_label", "Užklausos data"), request_date))
 
     poz_notes = (pozicija.pastabos or "").strip()
     combined_notes = "\n\n".join([x for x in [poz_notes, notes] if x])

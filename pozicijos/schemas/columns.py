@@ -59,7 +59,7 @@ COLUMNS: list[dict] = [
     },
     {
         "key": "poz_kodas",
-        "label": "Pozicijos kodas",
+        "label": "Detalės kodas",
         "type": "char",
         "filter": "text",
         "searchable": True,
@@ -68,7 +68,7 @@ COLUMNS: list[dict] = [
     },
     {
         "key": "poz_pavad",
-        "label": "Pozicijos pavadinimas",
+        "label": "Detalės pavadinimas",
         "type": "char",
         "filter": "text",
         "searchable": True,

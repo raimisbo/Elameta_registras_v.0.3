@@ -151,7 +151,12 @@ class PozicijaForm(forms.ModelForm):
             "papildomos_paslaugos", "papildomos_paslaugos_aprasymas",
             "pastabos",
         ]
-        labels = {"pakavimas": "Aprašymas", "instrukcija": "Pastabos"}
+        labels = {
+            "poz_kodas": "Detalės kodas",
+            "poz_pavad": "Detalės pavadinimas",
+            "pakavimas": "Aprašymas",
+            "instrukcija": "Pastabos",
+        }
         widgets = {
             "atlikimo_terminas": forms.NumberInput(attrs={"min": 0, "step": 1, "inputmode": "numeric"}),
             "metalo_storis": forms.NumberInput(
