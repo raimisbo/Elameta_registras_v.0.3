@@ -19,6 +19,27 @@ MATAS_CHOICES = [
 ]
 
 
+class LtDecimalField(forms.DecimalField):
+    """
+    Decimal laukas, kuris priima lietuvišką dešimtainį kablelį.
+    Pvz. 1,2500 -> 1.2500.
+    DB vis tiek saugoma kaip normalus Decimal.
+    """
+
+    def to_python(self, value):
+        if isinstance(value, str):
+            value = value.strip().replace("\u00a0", " ").replace(" ", "")
+
+            # Lietuviškas formatas su tūkstančių taškais:
+            # 1.234,5600 -> 1234.5600
+            if "," in value and "." in value and value.rfind(",") > value.rfind("."):
+                value = value.replace(".", "").replace(",", ".")
+            else:
+                value = value.replace(",", ".")
+
+        return super().to_python(value)
+
+
 class KainosEiluteForm(forms.ModelForm):
     """
     Intervalinė kainodara (be fiksuotos kainos UI).
@@ -39,6 +60,19 @@ class KainosEiluteForm(forms.ModelForm):
         label="Būsena",
         choices=BUSENA_UI_CHOICES,
         required=True,
+    )
+
+    kaina = LtDecimalField(
+        label="Kaina",
+        required=False,
+        max_digits=12,
+        decimal_places=4,
+        error_messages={
+            "invalid": "Įveskite skaičių. Galima naudoti kablelį, pvz. 1,2500.",
+            "max_digits": "Kaina per ilga.",
+            "max_decimal_places": "Po kablelio galima įvesti ne daugiau kaip 4 skaitmenis.",
+            "max_whole_digits": "Per daug skaitmenų prieš kablelį.",
+        },
     )
 
     class Meta:
@@ -84,7 +118,7 @@ class KainosEiluteForm(forms.ModelForm):
             w.input_type = "text"
             w.attrs.setdefault("inputmode", "decimal")
             # UI reikalavimas: 4 skaitmenys po kablelio
-            w.attrs.setdefault("placeholder", "0.0000")
+            w.attrs.setdefault("placeholder", "0,0000")
             w.attrs.setdefault("data-decimals", "4")
             w.attrs.setdefault("autocomplete", "off")
 
@@ -92,7 +126,7 @@ class KainosEiluteForm(forms.ModelForm):
             try:
                 inst_val = getattr(self.instance, "kaina", None)
                 if inst_val is not None and self.initial.get("kaina") in (None, ""):
-                    self.initial["kaina"] = f"{Decimal(inst_val):.4f}"
+                    self.initial["kaina"] = f"{Decimal(inst_val):.4f}".replace(".", ",")
             except Exception:
                 pass
 
@@ -175,7 +209,7 @@ class KainosEiluteForm(forms.ModelForm):
             return False
 
         # 1) Kaina – visada privaloma, jei eilutė nėra "efektyviai tuščia" (tą aukščiau jau atfiltravom)
-        if _blank(kaina):
+        if _blank(kaina) and "kaina" not in self.errors:
             self.add_error("kaina", "Privaloma užpildyti „Kaina“.")
 
         # 2) Kiekio intervalas – neprivalomas.
