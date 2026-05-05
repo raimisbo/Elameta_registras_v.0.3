@@ -42,6 +42,25 @@ def main() -> int:
     from pozicijos.models import Pozicija
 
     results: list[CheckResult] = []
+
+    # Smoke testas neturi palikti senų testinių Pozicija įrašų DB.
+    # Triname tik labai siaurus markerinius įrašus, kad nepaliestume realių duomenų.
+    for marker in ("SMOKE", "SMOKE_TEST_TEMP"):
+        deleted_count, _ = Pozicija.objects.filter(
+            klientas=marker,
+            projektas=marker,
+            poz_kodas=marker,
+            poz_pavad=marker,
+        ).delete()
+        if deleted_count:
+            results.append(
+                CheckResult(
+                    "cleanup stale smoke Pozicija",
+                    True,
+                    f"marker={marker}, deleted={deleted_count}",
+                )
+            )
+
     resolved: dict[str, str] = {}
 
     poz: Optional[Pozicija] = None
