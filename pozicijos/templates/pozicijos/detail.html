@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static lt_numbers %}
 
 {% block title %}Pozicija {{ pozicija.poz_kodas|default:pozicija.id }}{% endblock %}
 {% block body_class %}pozicija-detail-page{% endblock %}
@@ -356,7 +356,7 @@
             <div class="poz-field-row"><span class="poz-field-label">Tiekėjas</span><span class="poz-field-value">{{ pozicija.miltu_tiekejas|default:"—" }}</span>
             </div>
             <div class="poz-field-row"><span class="poz-field-label">Blizgumas</span><span class="poz-field-value">{{ pozicija.miltu_blizgumas|default:"—" }}</span></div>
-            <div class="poz-field-row"><span class="poz-field-label">Miltų kaina</span><span class="poz-field-value">{% if pozicija.miltu_kaina is not None %}{{ pozicija.miltu_kaina }}{% else %}—{% endif %}</span>
+            <div class="poz-field-row"><span class="poz-field-label">Miltų kaina</span><span class="poz-field-value">{% if pozicija.miltu_kaina is not None %}{{ pozicija.miltu_kaina|lt_decimal:4 }}{% else %}—{% endif %}</span>
             </div>
 
             <div class="poz-field-row">
@@ -485,7 +485,7 @@
             <tbody>
             {% for k in kainos_akt %}
                 <tr>
-                  <td>{{ k.kaina }}</td>
+                  <td>{{ k.kaina|lt_decimal:4 }}</td>
                   <td>{{ k.matas|default:"—" }}</td>
                   <td>{% if k.kiekis_nuo is not None %}{{ k.kiekis_nuo }}{% else %}—{% endif %}</td>
                   <td>{% if k.kiekis_iki is not None %}{{ k.kiekis_iki }}{% elif k.kiekis_nuo is not None %}+{% else %}—{% endif %}</td>

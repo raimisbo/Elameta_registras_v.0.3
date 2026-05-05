@@ -1,5 +1,5 @@
 {# pozicijos/templates/pozicijos/proposal_prepare.html #}
-{% extends "base.html" %}
+{% extends "base.html" %}\n{% load lt_numbers %}
 
 {% block title %}Pasiūlymo paruošimas – {{ pozicija.poz_kodas }}{% endblock %}
 
@@ -59,7 +59,7 @@
                   <td style="border:1px solid #e5e7eb; padding:6px 8px;">{{ k.matas|default:"" }}</td>
                   <td style="border:1px solid #e5e7eb; padding:6px 8px;">{% if k.kiekis_nuo is None %}—{% else %}{{ k.kiekis_nuo }}{% endif %}</td>
                   <td style="border:1px solid #e5e7eb; padding:6px 8px;">{% if k.kiekis_iki is None %}{% if k.kiekis_nuo is None %}—{% else %}+{% endif %}{% else %}{{ k.kiekis_iki }}{% endif %}</td>
-                  <td style="border:1px solid #e5e7eb; padding:6px 8px;">{{ k.kaina|default:"" }}</td>
+                  <td style="border:1px solid #e5e7eb; padding:6px 8px;">{{ k.kaina|lt_decimal:4 }}</td>
                   <td style="border:1px solid #e5e7eb; padding:6px 8px;">
                     {% if k.galioja_nuo %}{{ k.galioja_nuo|date:"Y-m-d" }}{% else %}—{% endif %}
                     –

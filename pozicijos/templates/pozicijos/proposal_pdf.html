@@ -1,6 +1,6 @@
 {# pozicijos/templates/pozicijos/proposal_pdf.html #}
 {% extends "base.html" %}
-{% load static %}
+{% load static lt_numbers %}
 
 {% block title %}
   {{ labels.offer_title }} – {{ pozicija.poz_kodas|default:pozicija.id }}
@@ -236,7 +236,7 @@
       <tbody>
       {% for k in kainos %}
       <tr>
-        <td>{{ k.kaina|default:"" }}</td>
+        <td>{{ k.kaina|lt_decimal:4 }}</td>
         <td>{{ k.matas|default:"" }}</td>
         <td>{% if k.kiekis_nuo is None %}—{% else %}{{ k.kiekis_nuo }}{% endif %}</td>
         <td>{% if k.kiekis_iki is None %}{% if k.kiekis_nuo is None %}—{% else %}+{% endif %}{% else %}{{ k.kiekis_iki }}{% endif %}</td>
@@ -365,7 +365,7 @@
       <tbody>
       {% for k in kainos %}
       <tr>
-        <td>{{ k.kaina|default:"" }}</td>
+        <td>{{ k.kaina|lt_decimal:4 }}</td>
         <td>{{ k.matas|default:"" }}</td>
         <td>{% if k.kiekis_nuo is None %}—{% else %}{{ k.kiekis_nuo }}{% endif %}</td>
         <td>{% if k.kiekis_iki is None %}{% if k.kiekis_nuo is None %}—{% else %}+{% endif %}{% else %}{{ k.kiekis_iki }}{% endif %}</td>

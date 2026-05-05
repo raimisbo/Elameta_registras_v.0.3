@@ -1,4 +1,4 @@
-{% load attr %}
+{% load attr lt_numbers %}
 
 {% for it in items %}
 <tr onclick="location.href='{% url 'pozicijos:detail' it.id %}'" style="cursor:pointer;">
@@ -36,12 +36,12 @@
         {% elif c.key == "kaina_eur" %}
           {% if it.kaina_min is not None and it.kaina_max is not None %}
             {% if it.kaina_min == it.kaina_max %}
-              {{ it.kaina_min|floatformat:4 }}
+              {{ it.kaina_min|lt_decimal:4 }}
             {% else %}
-              {{ it.kaina_min|floatformat:4 }}–{{ it.kaina_max|floatformat:4 }}
+              {{ it.kaina_min|lt_decimal:4 }}–{{ it.kaina_max|lt_decimal:4 }}
             {% endif %}
           {% elif it.kaina_eur is not None %}
-            {{ it.kaina_eur|floatformat:4 }}
+            {{ it.kaina_eur|lt_decimal:4 }}
           {% else %}
             —
           {% endif %}

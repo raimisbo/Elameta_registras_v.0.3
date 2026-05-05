@@ -1,5 +1,5 @@
 {# pozicijos/templates/pozicijos/kaina_history.html #}
-{% extends "base.html" %}
+{% extends "base.html" %}\n{% load lt_numbers %}
 
 {% block title %}Kainos istorija – {{ kaina.id }}{% endblock %}
 {% block body_class %}kainos-history-page{% endblock %}
@@ -116,7 +116,7 @@
                 {% endif %}
               </td>
 
-              <td>{% if h.kaina is None %}—{% else %}{{ h.kaina }}{% endif %}</td>
+              <td>{% if h.kaina is None %}—{% else %}{{ h.kaina|lt_decimal:4 }}{% endif %}</td>
               <td>{{ h.matas|default:"" }}</td>
               <td>{% if h.kiekis_nuo is None %}—{% else %}{{ h.kiekis_nuo }}{% endif %}</td>
               <td>{% if h.kiekis_iki is None %}{% if h.kiekis_nuo is None %}—{% else %}+{% endif %}{% else %}{{ h.kiekis_iki }}{% endif %}</td>
