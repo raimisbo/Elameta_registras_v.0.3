@@ -4,6 +4,7 @@ import io
 import os
 import tempfile
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode, urlparse
 from xml.sax.saxutils import escape as xml_escape
 
@@ -50,6 +51,21 @@ def _fmt_mm(v) -> str:
     return s
 
 
+def _fmt_price(value, places: int = 4) -> str:
+    """
+    Kainos atvaizdavimas PDF'e su lietuvišku kableliu.
+    DB lieka Decimal su tašku.
+    """
+    if value is None or value == "":
+        return ""
+    try:
+        decimal_value = Decimal(str(value).replace(",", "."))
+        quant = Decimal("1").scaleb(-places)
+        return f"{decimal_value.quantize(quant):.{places}f}".replace(".", ",")
+    except (InvalidOperation, TypeError, ValueError):
+        return str(value)
+
+
 def _humanize_case(value: str) -> str:
     v = (value or "").strip()
     if not v:
@@ -81,7 +97,7 @@ def _fmt_local_date(value) -> str:
 
 LANG_LABELS = {
     "lt": {
-        "offer_title": "PASIŪLYMAS",
+        "offer_title": "Komercinis pasiūlymas",
         "date_label": "Data",
         "request_date_label": "Užklausos data",
         "section_main": "Pagrindinė informacija",
@@ -100,7 +116,7 @@ LANG_LABELS = {
         "col_note": "Pastaba",
     },
     "en": {
-        "offer_title": "OFFER",
+        "offer_title": "Commercial offer",
         "date_label": "Date",
         "request_date_label": "Request date",
         "section_main": "Main information",
@@ -339,12 +355,21 @@ def _build_field_rows(pozicija: Pozicija, lang: str) -> list[tuple[str, str]]:
                     if lang == "en":
                         value_str = f"{n} working day" if n == 1 else f"{n} working days"
                     else:
-                        if n % 10 == 1 and n % 100 != 11:
-                            value_str = f"{n} darbo diena"
-                        elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
-                            value_str = f"{n} darbo dienos"
+                        # Lietuviška skaitvardžių galūnių logika:
+                        # 1, 21, 31 -> darbo diena
+                        # 2-9, 22-29 -> darbo dienos
+                        # 10-20, 30, 40 -> darbo dienų
+                        last_two = abs(n) % 100
+                        last_one = abs(n) % 10
+
+                        if last_two in range(11, 20) or last_one == 0:
+                            suffix = "darbo dienų"
+                        elif last_one == 1:
+                            suffix = "darbo diena"
                         else:
-                            value_str = f"{n} darbo dienų"
+                            suffix = "darbo dienos"
+
+                        value_str = f"{n} {suffix}"
                 except Exception:
                     value_str = str(value)
             else:
@@ -738,46 +763,77 @@ def proposal_pdf(request, pk: int):
         os.path.join(settings.BASE_DIR, "pozicijos", "static", "pozicijos", "img", "logo.png"),
     ]
     logo_path = next((p for p in logo_candidates if p and os.path.exists(str(p))), None)
+
+    # Kairė viršuje: logo
+    logo_w = 42 * mm
+    logo_h = 14 * mm
+    logo_x = margin_left
+    logo_y = H - 28 * mm
+
     if logo_path:
         try:
-            c.drawImage(logo_path, margin_left, H - 20 * mm, width=30 * mm, height=10 * mm, preserveAspectRatio=True, mask="auto")
+            c.drawImage(
+                logo_path,
+                logo_x,
+                logo_y,
+                width=logo_w,
+                height=logo_h,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
         except Exception:
             pass
 
+    # Po logo: dokumento pavadinimas
     c.setFont(font_bold, 16)
     c.setFillColor(colors.HexColor("#111827"))
-    c.drawString(margin_left, H - 30 * mm, labels["offer_title"])
+    c.drawString(margin_left, H - 36 * mm, labels["offer_title"])
 
+    # Dešinė viršuje: pasiūlymo generavimo data
     c.setFont(font_regular, 9)
     c.setFillColor(colors.HexColor("#6b7280"))
-    c.drawRightString(W - margin_right, H - 24 * mm, datetime.now().strftime("%Y-%m-%d"))
+    c.drawRightString(
+        W - margin_right,
+        H - 18 * mm,
+        f'{labels["date_label"]}: {datetime.now().strftime("%Y-%m-%d")}',
+    )
 
-    code = pozicija.poz_kodas or str(pozicija.pk)
-    c.setFont(font_regular, 10)
-    c.setFillColor(colors.HexColor("#111827"))
-    c.drawString(margin_left, H - 36 * mm, code)
+    # Centre viršuje: pilotinė / pirmoji brėžinio miniatiūra
+    try:
+        hero_source = pilot_brez_prepared
+    except NameError:
+        hero_source = brez_prepared[:1] if "brez_prepared" in locals() else []
 
-    sub = " • ".join([x for x in [str(pozicija.klientas or "").strip(), str(pozicija.projektas or "").strip()] if x])
-    if sub:
-        c.setFont(font_regular, 9)
-        c.setFillColor(colors.HexColor("#6b7280"))
-        c.drawString(margin_left, H - 41 * mm, sub)
-
-    # Hero dešinėje: pirmas brėžinys su preview; jei nėra – placeholder
-    hero_box_w = 56 * mm
-    hero_box_h = 36 * mm
-    hero_x = W - margin_right - hero_box_w
-    hero_y = H - 52 * mm
-
-    c.setStrokeColor(colors.HexColor("#e5e7eb"))
-    c.setLineWidth(0.6)
-    c.rect(hero_x, hero_y, hero_box_w, hero_box_h, stroke=1, fill=0)
-
-    hero_drawn = False
-    hero_kind = "FILE"
-    hero_prepared = pilot_brez_prepared[0] if show_drawings and pilot_brez_prepared else None
+    hero_prepared = hero_source[0] if show_drawings and hero_source else None
 
     if hero_prepared:
+        # Brėžinio dėžė:
+        # - santykis aukštis/plotis = 2/3
+        # - nebecentruojame per visą puslapį
+        # - centruojame tik laisvoje zonoje tarp kairiojo antraštės bloko
+        #   („Komercinis pasiūlymas“) pabaigos ir dešinio puslapio krašto
+        title_block_right = margin_left + 72 * mm
+        free_left = title_block_right + 6 * mm
+        free_right = W - margin_right
+        free_w = max(60 * mm, free_right - free_left)
+
+        # Šiek tiek siauresnė dėžė negu visa laisva zona,
+        # kad neatrodytų per plati.
+        hero_box_w = free_w * 0.78
+        hero_box_h = hero_box_w * (2.0 / 3.0)
+
+        # Centruojame tik laisvoje dešinėje zonoje.
+        hero_x = free_left + (free_w - hero_box_w) / 2
+
+        # Data yra viršuje dešinėje; brėžinį dedame beveik iškart po ja.
+        hero_top_y = H - 23 * mm
+        hero_y = hero_top_y - hero_box_h
+
+        c.setStrokeColor(colors.HexColor("#e5e7eb"))
+        c.setLineWidth(0.6)
+        c.rect(hero_x, hero_y, hero_box_w, hero_box_h, stroke=1, fill=0)
+
+        hero_drawn = False
         b0, hero_path = hero_prepared
         hero_kind = _drawing_kind(b0)
 
@@ -789,10 +845,10 @@ def proposal_pdf(request, pk: int):
                 try:
                     c.drawImage(
                         ImageReader(draw_path),
-                        hero_x + 1,
-                        hero_y + 1,
-                        width=hero_box_w - 2,
-                        height=hero_box_h - 2,
+                        hero_x + 2,
+                        hero_y + 2,
+                        width=hero_box_w - 4,
+                        height=hero_box_h - 4,
                         preserveAspectRatio=True,
                         anchor="c",
                         mask="auto",
@@ -801,17 +857,20 @@ def proposal_pdf(request, pk: int):
                 except Exception:
                     hero_drawn = False
 
-    if not hero_drawn:
-        c.setFont(font_bold, 11)
-        c.setFillColor(colors.HexColor("#9ca3af"))
-        c.drawCentredString(hero_x + hero_box_w / 2, hero_y + hero_box_h / 2, hero_kind)
+        if not hero_drawn:
+            c.setFont(font_bold, 12)
+            c.setFillColor(colors.HexColor("#9ca3af"))
+            c.drawCentredString(hero_x + hero_box_w / 2, hero_y + hero_box_h / 2, hero_kind)
 
-    y = H - 58 * mm
+        y = hero_y - 10 * mm
+    else:
+        y = H - 46 * mm
 
     # ------------------------------------------------------------------------
     # Main section
     # ------------------------------------------------------------------------
     draw_section_title(labels["section_main"])
+    y -= 4 * mm
 
     rows_for_table = list(field_rows)
     if combined_notes:
@@ -847,7 +906,7 @@ def proposal_pdf(request, pk: int):
                 ]
             )
         )
-        draw_table_split(t, labels["section_main"], gap_after=10)
+        draw_table_split(t, labels["section_main"], gap_after=18)
     else:
         c.setFont(font_regular, 9)
         c.setFillColor(colors.HexColor("#6b7280"))
@@ -859,6 +918,7 @@ def proposal_pdf(request, pk: int):
     # ------------------------------------------------------------------------
     if show_prices:
         draw_section_title(labels["section_prices"])
+        y -= 4 * mm
         if kainos:
             rows = [[
                 labels["col_price"],
@@ -872,7 +932,7 @@ def proposal_pdf(request, pk: int):
             for k in kainos:
                 price_note = (k.pastaba or "").strip()
                 rows.append([
-                    "" if k.kaina is None else str(k.kaina),
+                    _fmt_price(k.kaina),
                     str(k.matas or ""),
                     "—" if k.kiekis_nuo is None else str(k.kiekis_nuo),
                     ("+" if k.kiekis_nuo is not None else "—") if k.kiekis_iki is None else str(k.kiekis_iki),
@@ -911,9 +971,8 @@ def proposal_pdf(request, pk: int):
     # ------------------------------------------------------------------------
     # Drawings
     # ------------------------------------------------------------------------
-    # Atskiro brėžinių miniatiūrų bloko PDF'e nebededame.
-    # Pilotinė / pirmoji miniatiūra rodoma viršuje dešinėje esančiame hero bloke,
-    # kad pasiūlymas neužsitęstų per kelis puslapius vien dėl brėžinių.
+    # Brėžinio miniatiūra rodoma tik centre viršuje kaip pilotinis vaizdas.
+    # Atskiro apatinio miniatiūrų bloko PDF'e nebededame.
 
     # Cleanup temp images
     for p in temp_files_to_cleanup:
