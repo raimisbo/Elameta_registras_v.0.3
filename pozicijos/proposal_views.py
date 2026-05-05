@@ -784,10 +784,29 @@ def proposal_pdf(request, pk: int):
         except Exception:
             pass
 
-    # Po logo: dokumento pavadinimas
-    c.setFont(font_bold, 16)
+    # Po logo: dokumento pavadinimas.
+    # Nuleidžiam žemiau ir padidinam, kad neprapultų tarp logo ir identifikatorių.
+    offer_title_y = H - 41 * mm
+    c.setFont(font_bold, 18)
     c.setFillColor(colors.HexColor("#111827"))
-    c.drawString(margin_left, H - 36 * mm, labels["offer_title"])
+    c.drawString(margin_left, offer_title_y, labels["offer_title"])
+
+    # Po pavadinimu: greiti identifikatoriai.
+    # Paliekam aiškesnį tarpą nuo „Komercinis pasiūlymas“.
+    header_project = str(getattr(pozicija, "projektas", "") or "").strip()
+    header_part_code = str(getattr(pozicija, "poz_kodas", "") or "").strip()
+
+    header_left_y = offer_title_y - 10 * mm
+    if header_project:
+        c.setFont(font_bold, 10.5)
+        c.setFillColor(colors.HexColor("#111827"))
+        c.drawString(margin_left, header_left_y, f"Projektas: {header_project}")
+        header_left_y -= 6 * mm
+
+    if header_part_code:
+        c.setFont(font_bold, 10.5)
+        c.setFillColor(colors.HexColor("#111827"))
+        c.drawString(margin_left, header_left_y, f"Detalės kodas: {header_part_code}")
 
     # Dešinė viršuje: pasiūlymo generavimo data
     c.setFont(font_regular, 9)
