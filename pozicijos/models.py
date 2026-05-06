@@ -234,6 +234,30 @@ class Pozicija(models.Model):
         akt = self.kainos_eilutes.filter(busena="aktuali").order_by("-prioritetas", "-id").first()
         return akt.kaina if akt else None
 
+    @staticmethod
+    def _fmt_whole_decimal(value):
+        if value is None:
+            return ""
+        try:
+            decimal_value = Decimal(value)
+            if decimal_value == decimal_value.to_integral_value():
+                return str(int(decimal_value))
+            return str(decimal_value).rstrip("0").rstrip(".")
+        except (InvalidOperation, TypeError, ValueError):
+            return str(value)
+
+    @property
+    def ktl_matmenys_iag(self):
+        if self.ktl_ilgis_mm is None or self.ktl_aukstis_mm is None or self.ktl_gylis_mm is None:
+            return ""
+        return " × ".join(
+            [
+                self._fmt_whole_decimal(self.ktl_ilgis_mm),
+                self._fmt_whole_decimal(self.ktl_aukstis_mm),
+                self._fmt_whole_decimal(self.ktl_gylis_mm),
+            ]
+        )
+
     @property
     def ktl_matmenu_sandauga(self):
         if self.ktl_matmenu_sandauga_db is not None:
