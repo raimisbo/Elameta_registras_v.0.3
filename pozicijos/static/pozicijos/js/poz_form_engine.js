@@ -518,6 +518,88 @@
   // KAINŲ FORMSET: + Pridėti eilutę
   // =========================
   function initKainosFormsets() {
+    function parseLtDecimal(v) {
+      if (v == null) return NaN;
+      v = String(v).trim().replace(/\s+/g, "");
+      if (!v) return NaN;
+
+      // 1.234,5600 -> 1234.5600
+      if (v.indexOf(",") !== -1 && v.indexOf(".") !== -1 && v.lastIndexOf(",") > v.lastIndexOf(".")) {
+        v = v.replace(/\./g, "").replace(",", ".");
+      } else {
+        v = v.replace(",", ".");
+      }
+
+      var n = Number(v);
+      return Number.isFinite(n) ? n : NaN;
+    }
+
+    function formatLtDecimal(n, places) {
+      if (!Number.isFinite(n)) return "";
+      return n.toFixed(places || 4).replace(".", ",");
+    }
+
+    function getKtlFrameQty(root) {
+      var qtyEl =
+        document.getElementById("id_ktl_detaliu_kiekis_reme") ||
+        document.querySelector('[name="ktl_detaliu_kiekis_reme"]');
+
+      if (qtyEl) return parseLtDecimal(qtyEl.value);
+
+      // Kainų atskirame puslapyje KTL laukų nėra, todėl naudojam išsaugotą reikšmę iš data-*.
+      if (root && root.dataset && root.dataset.ktlFrameQty) {
+        return parseLtDecimal(root.dataset.ktlFrameQty);
+      }
+
+      return NaN;
+    }
+
+    function isKtlChecked(root) {
+      var ktlCb = document.getElementById("id_paslauga_ktl");
+      if (ktlCb) return !!ktlCb.checked;
+
+      // Kainų atskirame puslapyje KTL checkbox nėra, todėl naudojam išsaugotą būseną iš data-*.
+      if (root && root.dataset && root.dataset.ktlOn) {
+        return root.dataset.ktlOn === "1";
+      }
+
+      return false;
+    }
+
+    function updateFramePrice(row, root) {
+      if (!row) return;
+
+      var out = row.querySelector("[data-frame-price-preview]");
+      if (!out) return;
+
+      var priceEl = row.querySelector('input[name$="-kaina"]');
+      var unitPrice = priceEl ? parseLtDecimal(priceEl.value) : NaN;
+      var frameQty = getKtlFrameQty(root);
+
+      if (!isKtlChecked(root) || !Number.isFinite(frameQty) || frameQty <= 0 || !Number.isFinite(unitPrice)) {
+        out.textContent = "Rėmo kaina: —";
+        out.classList.add("frame-price-preview--empty");
+        return;
+      }
+
+      var framePrice = frameQty * unitPrice;
+      out.textContent =
+        "Rėmo kaina: " +
+        String(frameQty).replace(".", ",") +
+        " × " +
+        formatLtDecimal(unitPrice, 4) +
+        " = " +
+        formatLtDecimal(framePrice, 4) +
+        " €";
+      out.classList.remove("frame-price-preview--empty");
+    }
+
+    function updateAllFramePrices(root) {
+      $all("tr.kaina-row", root || document).forEach(function (row) {
+        updateFramePrice(row, root);
+      });
+    }
+
     $all(".kainos-formset").forEach(function (root) {
       var prefix = root.getAttribute("data-prefix");
       if (!prefix) return;
@@ -550,7 +632,36 @@
           busSel.addEventListener("change", recolor);
         }
         recolor();
+
+        var priceEl = row.querySelector('input[name$="-kaina"]');
+        if (priceEl && priceEl.dataset.framePriceBound !== "1") {
+          priceEl.dataset.framePriceBound = "1";
+          priceEl.addEventListener("input", function () {
+            updateFramePrice(row, root);
+          });
+          priceEl.addEventListener("change", function () {
+            updateFramePrice(row, root);
+          });
+        }
+
+        updateFramePrice(row, root);
       }
+
+      var qtyEl =
+        document.getElementById("id_ktl_detaliu_kiekis_reme") ||
+        document.querySelector('[name="ktl_detaliu_kiekis_reme"]');
+      var ktlCb = document.getElementById("id_paslauga_ktl");
+
+      [qtyEl, ktlCb, document.getElementById("id_ktl_ilgis_mm"), document.getElementById("id_ktl_aukstis_mm"), document.getElementById("id_ktl_gylis_mm")].forEach(function (el) {
+        if (!el || el.dataset.framePriceGlobalBound === "1") return;
+        el.dataset.framePriceGlobalBound = "1";
+        el.addEventListener("input", function () {
+          updateAllFramePrices(root);
+        });
+        el.addEventListener("change", function () {
+          updateAllFramePrices(root);
+        });
+      });
 
       // esamoms eilutėms
       $all("tr.kaina-row", tbody).forEach(bindRow);
@@ -567,7 +678,18 @@
 
         var row = tbody.lastElementChild;
         if (row) bindRow(row);
+        updateAllFramePrices(root);
       });
+
+      // Pirminis paskaičiavimas po puslapio užkrovimo.
+      // Reikalinga po Save, kai reikšmės jau yra HTML'e, bet vartotojas dar nieko nepakeitė.
+      updateAllFramePrices(root);
+
+      // Dar vienas atidėtas perskaičiavimas, nes kai kurie formset/widget inicializatoriai
+      // gali užpildyti reikšmes šiek tiek vėliau tame pačiame DOMContentLoaded cikle.
+      window.setTimeout(function () {
+        updateAllFramePrices(root);
+      }, 0);
     });
   }
 

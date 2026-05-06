@@ -1,6 +1,10 @@
 {# pozicijos/templates/pozicijos/components/kainos_formset.html #}
 
-<div class="kainos-formset" id="kainos-formset-{{ formset.prefix }}" data-prefix="{{ formset.prefix }}">
+<div class="kainos-formset"
+     id="kainos-formset-{{ formset.prefix }}"
+     data-prefix="{{ formset.prefix }}"
+     data-ktl-on="{% if formset.instance.paslauga_ktl %}1{% else %}0{% endif %}"
+     data-ktl-frame-qty="{{ formset.instance.ktl_detaliu_kiekis_reme|default_if_none:'' }}">
 
   {{ formset.management_form }}
 
@@ -42,6 +46,7 @@
             <td class="cell-kaina">
               {{ form.id }}
               {{ form.kaina }}
+              <div class="frame-price-preview frame-price-preview--empty" data-frame-price-preview>Rėmo kaina: —</div>
               {% if form.kaina.errors %}<div class="errorlist">{{ form.kaina.errors }}</div>{% endif %}
             </td>
 
@@ -146,7 +151,16 @@
   }
   .hist-link:hover{ filter:brightness(0.98); }
 
-  .col-kaina{ width:90px; }
+  .frame-price-preview{
+    margin-top:4px;
+    font-size:0.78rem;
+    line-height:1.2;
+    color:#374151;
+    white-space:normal;
+  }
+  .frame-price-preview--empty{ color:#9ca3af; }
+
+  .col-kaina{ width:110px; }
   .col-matas{ width:120px; }
   .col-qty{ width:80px; }
   .col-gal{ width:180px; }
@@ -159,7 +173,7 @@
 <template id="kainos-empty-template-{{ formset.prefix }}">
   {% with f=formset.empty_form %}
   <tr class="kaina-row kaina-row--neaktuali">
-    <td class="cell-kaina">{{ f.id }}{{ f.kaina }}</td>
+    <td class="cell-kaina">{{ f.id }}{{ f.kaina }}<div class="frame-price-preview frame-price-preview--empty" data-frame-price-preview>Rėmo kaina: —</div></td>
     <td class="cell-matas">{{ f.matas }}</td>
     <td class="cell-qty">{{ f.kiekis_nuo }}</td>
     <td class="cell-qty">{{ f.kiekis_iki }}</td>
