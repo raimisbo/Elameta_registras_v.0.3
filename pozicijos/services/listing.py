@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional
 
@@ -41,6 +42,12 @@ TEXT_FILTER_FIELDS = {
     "testai_kokybe",
     "ktl_dangos_storis_txt",
     "miltai_dangos_storis_txt",
+    "ktl_kabinimo_budas",
+    "ktl_kabinimas_reme_txt",
+    "paruosimas",
+    "maskavimo_tipas",
+    "pakavimo_tipas",
+    "pastabos",
 }
 
 DECIMAL_RANGE_FIELDS = {
@@ -107,6 +114,45 @@ def _split_numeric_range(raw: str) -> Optional[tuple[str, str]]:
         return m.group(1), m.group(2)
 
     return None
+
+
+def _normalize_filter_text(value: str) -> str:
+    value = (value or "").casefold().strip()
+    value = unicodedata.normalize("NFKD", value)
+    return "".join(ch for ch in value if not unicodedata.combining(ch))
+
+
+def _choice_label_q(model, field_name: str, value: str) -> Optional[Q]:
+    """
+    Leidžia filtruoti choice laukus pagal vartotojui rodomą labelį.
+    Pvz. maskavimo_tipas DB saugo "nera", o sąraše rodoma "Nėra".
+    Filtras "Nėra" arba "nera" turi rasti tą įrašą.
+    """
+    try:
+        field = model._meta.get_field(field_name)
+    except Exception:
+        return None
+
+    choices = getattr(field, "choices", None) or []
+    if not choices:
+        return None
+
+    needle = _normalize_filter_text(value)
+    if not needle:
+        return None
+
+    matched_values = []
+    for raw_value, label in choices:
+        raw_text = str(raw_value)
+        label_text = str(label)
+
+        if needle in _normalize_filter_text(raw_text) or needle in _normalize_filter_text(label_text):
+            matched_values.append(raw_value)
+
+    if not matched_values:
+        return None
+
+    return Q(**{f"{field_name}__in": matched_values})
 
 
 def build_numeric_range_q(field_name: str, expr: str) -> Optional[Q]:
@@ -380,7 +426,15 @@ def apply_filters(qs: QuerySet, request) -> QuerySet:
 
         # Tekstiniai laukai
         if field in TEXT_FILTER_FIELDS:
-            qs = qs.filter(**{f"{field}__icontains": value})
+            q_text = Q(**{f"{field}__icontains": value})
+
+            # Choice laukai, pvz. maskavimo_tipas / pakavimo_tipas:
+            # leidžiam filtruoti ir pagal vartotojui rodomą labelį.
+            q_choice = _choice_label_q(qs.model, field, value)
+            if q_choice is not None:
+                q_text = q_text | q_choice
+
+            qs = qs.filter(q_text)
             continue
 
         # Decimal range (įskaitant kainą)
