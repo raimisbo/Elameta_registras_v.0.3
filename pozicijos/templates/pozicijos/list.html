@@ -92,6 +92,19 @@
   }
   #pozicijos-table tbody tr:nth-child(even) td{background:#f8f8f8;}
 
+  /* Pastabos sąraše neturi išstorinti visos eilutės.
+     Pilnas tekstas matomas užvedus pele ant lauko. */
+  #pozicijos-table tbody td[data-key="pastabos"]{
+    max-width:260px;
+  }
+  #pozicijos-table tbody td[data-key="pastabos"] .list-cell-one-line{
+    display:block;
+    max-width:260px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
   .th-filter{width:100%; box-sizing:border-box;}
   .th-filter.is-invalid{
     border:1px solid #dc2626 !important;
