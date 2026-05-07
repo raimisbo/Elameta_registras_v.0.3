@@ -11,7 +11,7 @@ from xml.sax.saxutils import escape as xml_escape
 from PIL import Image
 from django.conf import settings
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from reportlab.lib import colors
@@ -625,17 +625,66 @@ def _register_fonts() -> tuple[str, str]:
 # ============================================================================
 
 def proposal_prepare(request, pk: int):
-    qs = request.GET.copy()
-    if "lang" not in qs:
-        qs["lang"] = "lt"
-    if "show_prices" not in qs:
-        qs["show_prices"] = "1"
-    if "show_drawings" not in qs:
-        qs["show_drawings"] = "1"
+    pozicija = get_object_or_404(Pozicija, pk=pk)
 
-    url = f"{reverse('pozicijos:pdf', args=[pk])}?{urlencode(qs, doseq=True)}"
-    return redirect(url)
+    lang = _get_lang(request)
+    show_prices = _as_bool(request.GET.get("show_prices"), default=True)
+    show_drawings = _as_bool(request.GET.get("show_drawings"), default=True)
+    notes = (request.GET.get("notes", "") or "").strip()
 
+    available_kainos = list(
+        pozicija.kainos_eilutes
+        .filter(busena="aktuali")
+        .order_by("kiekis_nuo", "kiekis_iki", "-prioritetas", "-created")
+    )
+
+    raw_selected_kaina_ids = request.GET.getlist("kaina_id")
+    selected_kaina_ids = [
+        int(x) for x in raw_selected_kaina_ids
+        if str(x).isdigit()
+    ]
+
+    # Jei vartotojas dar nieko nepasirinko, paruošimo lange pažymim visas aktualias kainas.
+    if show_prices and not raw_selected_kaina_ids:
+        selected_kaina_ids = [k.id for k in available_kainos]
+
+    breziniai = list(pozicija.breziniai.all().order_by("id"))
+
+    selected_brezinys_id = None
+    raw_brezinys_id = (request.GET.get("brezinys_id") or "").strip()
+    if raw_brezinys_id.isdigit():
+        candidate_id = int(raw_brezinys_id)
+        if any(b.id == candidate_id for b in breziniai):
+            selected_brezinys_id = candidate_id
+
+    # Jei nepasirinkta ranka – siūlom dabartinį pilotinį variantą:
+    # pirmas su preview, jei nėra preview – pirmas failas.
+    if selected_brezinys_id is None and breziniai:
+        with_preview = []
+        without_preview = []
+        for b in breziniai:
+            if _resolve_preview_path(b):
+                with_preview.append(b)
+            else:
+                without_preview.append(b)
+
+        selected_brezinys_id = (with_preview + without_preview)[0].id
+
+    return render(
+        request,
+        "pozicijos/proposal_prepare.html",
+        {
+            "pozicija": pozicija,
+            "lang": lang,
+            "show_prices": show_prices,
+            "show_drawings": show_drawings,
+            "notes": notes,
+            "available_kainos": available_kainos,
+            "selected_kaina_ids": selected_kaina_ids,
+            "breziniai": breziniai,
+            "selected_brezinys_id": selected_brezinys_id,
+        },
+    )
 
 def proposal_pdf(request, pk: int):
     pozicija = get_object_or_404(Pozicija, pk=pk)
@@ -664,17 +713,30 @@ def proposal_pdf(request, pk: int):
 
     brez = list(pozicija.breziniai.all().order_by("id"))
 
-    # PRIORITETAS: pasiūlyme rodome tik vieną pilotinį brėžinį.
-    # Pirmiau imamas pirmas brėžinys, turintis preview; jei preview nėra – pirmas failas.
-    brez_with_preview = []
-    brez_without_preview = []
-    for b in brez:
-        pp = _resolve_preview_path(b)
-        if pp:
-            brez_with_preview.append((b, pp))
-        else:
-            brez_without_preview.append((b, None))
-    pilot_brez_prepared = (brez_with_preview + brez_without_preview)[:1]
+    # PRIORITETAS: pasiūlyme rodome tik vieną brėžinį.
+    # Jei paruošimo lange pasirinktas brezinys_id – naudojame jį.
+    # Jei nepasirinktas – lieka senoji logika: pirmas su preview, kitaip pirmas failas.
+    selected_brezinys = None
+    raw_brezinys_id = (request.GET.get("brezinys_id") or "").strip()
+
+    if raw_brezinys_id.isdigit():
+        wanted_id = int(raw_brezinys_id)
+        selected_brezinys = next((b for b in brez if b.id == wanted_id), None)
+
+    if selected_brezinys is not None:
+        pilot_brez_prepared = [(selected_brezinys, _resolve_preview_path(selected_brezinys))]
+    else:
+        brez_with_preview = []
+        brez_without_preview = []
+
+        for b in brez:
+            pp = _resolve_preview_path(b)
+            if pp:
+                brez_with_preview.append((b, pp))
+            else:
+                brez_without_preview.append((b, None))
+
+        pilot_brez_prepared = (brez_with_preview + brez_without_preview)[:1]
 
     font_regular, font_bold = _register_fonts()
     notes_style = ParagraphStyle(name="notes", fontName=font_regular, fontSize=9, leading=12)

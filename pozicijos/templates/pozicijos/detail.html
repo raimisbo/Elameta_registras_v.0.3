@@ -158,9 +158,9 @@
     <div class="detail-header-actions">
       <a href="{% url 'pozicijos:edit' pozicija.id %}" class="btn-action">Redaguoti</a>
       <a href="{% url 'pozicijos:kainos_list' pozicija.id %}" class="btn-action btn-secondary">Kainų valdymas</a>
-      <a href="{% url 'pozicijos:pdf' pozicija.id %}?lang=lt" target="_blank" rel="noopener" class="btn-action">Pasiūlymas
+      <a href="{% url 'pozicijos:proposal_prepare' pozicija.id %}?lang=lt" class="btn-action">Pasiūlymas
         (LT)</a>
-      <a href="{% url 'pozicijos:pdf' pozicija.id %}?lang=en" target="_blank" rel="noopener" class="btn-action">Pasiūlymas
+      <a href="{% url 'pozicijos:proposal_prepare' pozicija.id %}?lang=en" class="btn-action">Pasiūlymas
         (EN)</a>
       <a href="{% url 'pozicijos:list' %}" class="btn-action">Atgal į sąrašą</a>
     </div>
