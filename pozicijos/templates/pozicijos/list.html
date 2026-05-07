@@ -105,6 +105,24 @@
     white-space:nowrap;
   }
 
+  .cols-actions{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:8px;
+    margin:10px 0 14px;
+  }
+  .cols-actions button{
+    width:100%;
+    min-width:0;
+    white-space:normal;
+    line-height:1.15;
+    padding:8px 10px;
+    text-align:center;
+  }
+  .cols-actions #cols-save-default{
+    grid-column:1 / -1;
+  }
+
   .th-filter{width:100%; box-sizing:border-box;}
   .th-filter.is-invalid{
     border:1px solid #dc2626 !important;
@@ -247,10 +265,13 @@
   <div class="drawer-body">
     <input id="cols-search" class="cols-search" type="search" placeholder="Ieškoti stulpelių...">
     <div style="display:flex; gap:.5rem; margin:.25rem 0 .5rem;">
-      <button id="cols-all-off" type="button">Išjungti visus</button>
-      <button id="cols-all-on" type="button">Pažymėti visus</button>
-      <button id="cols-default" type="button">Numatytieji</button>
-      <button id="cols-reset" type="button">↺ Atstatyti tvarką</button>
+      <div class="cols-actions">
+        <button id="cols-all-off" type="button">Išjungti visus</button>
+        <button id="cols-all-on" type="button">Pažymėti visus</button>
+        <button id="cols-save-default" type="button">💾 Įrašyti numatytuosius</button>
+        <button id="cols-default" type="button">Numatytieji</button>
+        <button id="cols-reset" type="button">↺ Gamykliniai</button>
+      </div>
     </div>
     <div id="cols-list">
       {% for c in columns_schema %}
@@ -278,6 +299,11 @@
   const DEFAULT_KEYS = ["klientas","projektas","poz_kodas","poz_pavad","kaina_eur","pastabos"];
   const KEY_COLS = "pozicijos:visibleCols:v2";
   const DND_KEY  = "dnd-order:pozicijos";
+
+  // Vartotojo susikurti numatytieji stulpeliai / tvarka.
+  // Saugoma naršyklėje, be DB migracijų.
+  const USER_DEFAULT_COLS_KEY = "pozicijos:userDefaultVisibleCols:v1";
+  const USER_DEFAULT_ORDER_KEY = "pozicijos:userDefaultOrder:v1";
 
   const TYPE_BY_KEY = {};
   const FILTER_BY_KEY = {};
@@ -312,6 +338,60 @@
 
   function getDefaultColsFromSchema() {
     return SCHEMA.filter(c => DEFAULT_KEYS.includes(c.key)).map(c => c.key);
+  }
+
+  function getFactoryOrderFromSchema() {
+    return SCHEMA.map(c => c.key);
+  }
+
+  function getCurrentOrderFromDom() {
+    const headerRow =
+      document.querySelector("#pozicijos-table thead tr.headers") ||
+      document.querySelector("#pozicijos-table thead tr");
+
+    if (!headerRow) return getFactoryOrderFromSchema();
+
+    return Array.from(headerRow.children)
+      .map(th => th.dataset.key)
+      .filter(Boolean);
+  }
+
+  function readJsonFromStorage(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : fallback;
+    } catch(e) {
+      return fallback;
+    }
+  }
+
+  function getUserDefaultCols() {
+    return readJsonFromStorage(USER_DEFAULT_COLS_KEY, getDefaultColsFromSchema());
+  }
+
+  function getUserDefaultOrder() {
+    return readJsonFromStorage(USER_DEFAULT_ORDER_KEY, getFactoryOrderFromSchema());
+  }
+
+  function saveCurrentAsUserDefaults() {
+    localStorage.setItem(USER_DEFAULT_COLS_KEY, JSON.stringify(getVisibleCols()));
+    localStorage.setItem(USER_DEFAULT_ORDER_KEY, JSON.stringify(getCurrentOrderFromDom()));
+  }
+
+  function applyUserDefaults() {
+    localStorage.setItem(KEY_COLS, JSON.stringify(getUserDefaultCols()));
+    localStorage.setItem(DND_KEY, JSON.stringify(getUserDefaultOrder()));
+    location.reload();
+  }
+
+  function resetToFactoryDefaults() {
+    localStorage.removeItem(KEY_COLS);
+    localStorage.removeItem(DND_KEY);
+    localStorage.removeItem(USER_DEFAULT_COLS_KEY);
+    localStorage.removeItem(USER_DEFAULT_ORDER_KEY);
+    location.reload();
   }
 
   function getVisibleCols(){
@@ -444,11 +524,20 @@
 
   $("#cols-all-off")?.addEventListener("click", () => setVisibleCols([]));
   $("#cols-all-on")?.addEventListener("click", () => setVisibleCols(SCHEMA.map(c=>c.key)));
-  $("#cols-default")?.addEventListener("click", () => setVisibleCols(getDefaultColsFromSchema()));
+
+  $("#cols-save-default")?.addEventListener("click", () => {
+    saveCurrentAsUserDefaults();
+    alert("Dabartiniai stulpeliai ir jų tvarka įrašyti kaip tavo numatytieji.");
+  });
+
+  $("#cols-default")?.addEventListener("click", () => {
+    applyUserDefaults();
+  });
+
   $("#cols-reset")?.addEventListener("click", () => {
-    localStorage.removeItem(DND_KEY);
-    localStorage.removeItem(KEY_COLS);
-    location.reload();
+    if (confirm("Atstatyti gamyklinius stulpelius ir ištrinti tavo išsaugotus numatytuosius?")) {
+      resetToFactoryDefaults();
+    }
   });
 
   $("#cols-search")?.addEventListener("input", e => {
@@ -544,11 +633,12 @@
       i.value = "";
       i.classList.remove("is-invalid");
     });
-    localStorage.removeItem(KEY_COLS);
-    localStorage.removeItem(DND_KEY);
+
+    localStorage.setItem(KEY_COLS, JSON.stringify(getUserDefaultCols()));
+    localStorage.setItem(DND_KEY, JSON.stringify(getUserDefaultOrder()));
     sortKey = null;
     sortDir = "asc";
-    fetchTbody();
+    location.reload();
   });
 
   function renderChips(){
