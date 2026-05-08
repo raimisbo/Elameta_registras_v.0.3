@@ -100,6 +100,8 @@ LANG_LABELS = {
         "offer_title": "Komercinis pasiūlymas",
         "date_label": "Data",
         "request_date_label": "Užklausos data",
+        "created_label": "Sukurta",
+        "updated_label": "Atnaujinta",
         "section_main": "Pagrindinė informacija",
         "section_prices": "Kainos (aktualios eilutės)",
         "section_drawings": "Brėžinių miniatiūros",
@@ -119,6 +121,8 @@ LANG_LABELS = {
         "offer_title": "Commercial offer",
         "date_label": "Date",
         "request_date_label": "Request date",
+        "created_label": "Created",
+        "updated_label": "Updated",
         "section_main": "Main information",
         "section_prices": "Prices (active lines)",
         "section_drawings": "Drawing thumbnails",
@@ -870,14 +874,26 @@ def proposal_pdf(request, pk: int):
         c.setFillColor(colors.HexColor("#111827"))
         c.drawString(margin_left, header_left_y, f"Detalės kodas: {header_part_code}")
 
-    # Dešinė viršuje: pasiūlymo generavimo data
+    # Dešinė viršuje: pasiūlymo generavimo / pozicijos datos
     c.setFont(font_regular, 9)
     c.setFillColor(colors.HexColor("#6b7280"))
-    c.drawRightString(
-        W - margin_right,
-        H - 18 * mm,
-        f'{labels["date_label"]}: {datetime.now().strftime("%Y-%m-%d")}',
-    )
+
+    header_date_lines = [
+        (labels.get("date_label", "Data"), datetime.now().strftime("%Y-%m-%d")),
+        (labels.get("created_label", "Sukurta"), _fmt_local_date(getattr(pozicija, "created", None))),
+        (labels.get("updated_label", "Atnaujinta"), _fmt_local_date(getattr(pozicija, "updated", None))),
+    ]
+
+    header_date_y = H - 18 * mm
+    for date_label, date_value in header_date_lines:
+        if not date_value:
+            continue
+        c.drawRightString(
+            W - margin_right,
+            header_date_y,
+            f"{date_label}: {date_value}",
+        )
+        header_date_y -= 4.2 * mm
 
     # Centre viršuje: pilotinė / pirmoji brėžinio miniatiūra
     try:
@@ -906,8 +922,9 @@ def proposal_pdf(request, pk: int):
         # Centruojame tik laisvoje dešinėje zonoje.
         hero_x = free_left + (free_w - hero_box_w) / 2
 
-        # Data yra viršuje dešinėje; brėžinį dedame beveik iškart po ja.
-        hero_top_y = H - 23 * mm
+        # Data yra viršuje dešinėje; brėžinį dedame žemiau datos bloko,
+        # palikdami nedidelį tarpą po paskutine datos eilute.
+        hero_top_y = header_date_y - 2 * mm
         hero_y = hero_top_y - hero_box_h
 
         c.setStrokeColor(colors.HexColor("#e5e7eb"))
