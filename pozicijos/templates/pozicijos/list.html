@@ -4,7 +4,7 @@
 {% load json_utils %}
 {% load static %}
 
-{% block title %}Pozicijų sąrašas{% endblock %}
+{% block title %}Detalių sąrašas{% endblock %}
 
 {% block page_css %}
 <style>
@@ -40,6 +40,17 @@
   .chips{display:flex; gap:.35rem; flex-wrap:wrap;}
   .chip{background:#e2e8f0; padding:2px 6px; border-radius:4px; display:inline-flex; gap:4px; align-items:center; font-size:.8rem;}
   .chip button{border:0; background:transparent; cursor:pointer;}
+
+  .active-project-summary{
+    border:1px solid #bfdbfe;
+    background:#eff6ff;
+    color:#1e3a8a;
+    border-radius:6px;
+    padding:8px 10px;
+    font-size:.92rem;
+    margin-top:.15rem;
+  }
+  .active-project-summary[hidden]{display:none;}
 
   .graph-box{
     display:flex;
@@ -201,7 +212,7 @@
 
 <div class="controls-block">
   <div class="controls-bar">
-    <a href="{% url 'pozicijos:create' %}" class="btn btn-primary">+ Nauja pozicija</a>
+    <a href="{% url 'pozicijos:create' %}" class="btn btn-primary">+ Nauja detalė</a>
     <input id="q" name="q" type="search" placeholder="Globali paieška..." value="{{ q|default:'' }}">
     <button id="btn-cols" type="button">Stulpeliai</button>
     <button id="btn-clear" type="button">Išvalyti</button>
@@ -216,6 +227,7 @@
     </label>
   </div>
   <div id="chips" class="chips"></div>
+  <div id="active-project-summary" class="active-project-summary" hidden></div>
 </div>
 
 <div class="table-wrap" id="pozicijos-wrap">
@@ -335,6 +347,7 @@
   const backdrop = $("#drawer-backdrop");
   const btnClear = $("#btn-clear");
   const btnExportCsv = $("#btn-export-csv");
+  const activeProjectSummary = $("#active-project-summary");
 
   const PALETTE = ["#0ea5e9","#22c55e","#f97316","#e11d48","#6366f1","#14b8a6","#facc15","#8b5cf6","#6b7280","#f43f5e","#a855f7","#10b981"];
 
@@ -708,6 +721,22 @@
     document.getElementById("donutCenter").innerHTML = (total||0) + "<br><span>įrašų</span>";
   }
 
+  function updateActiveProjectSummary(total){
+    if (!activeProjectSummary) return;
+
+    const params = buildParams();
+    const project = params.get("f[projektas]");
+
+    if (!project) {
+      activeProjectSummary.hidden = true;
+      activeProjectSummary.textContent = "";
+      return;
+    }
+
+    activeProjectSummary.hidden = false;
+    activeProjectSummary.textContent = `Aktyvus projektas: ${project} · Detalių: ${total || 0}`;
+  }
+
   function fetchStatsAndRender(){
     const params = buildParams();
     const url = new URL("{% url 'pozicijos:stats' %}", location.origin);
@@ -725,6 +754,7 @@
           ch.update();
           renderLegend([], []);
           updateCenter(total || 0);
+          updateActiveProjectSummary(total || 0);
           return;
         }
         ch.data.labels = labels;
@@ -732,7 +762,9 @@
         ch.data.datasets[0].backgroundColor = labels.map((_,i)=>PALETTE[i%PALETTE.length]);
         ch.update();
         renderLegend(labels, values);
-        updateCenter(total || values.reduce((a,b)=>a+b,0));
+        const resolvedTotal = total || values.reduce((a,b)=>a+b,0);
+        updateCenter(resolvedTotal);
+        updateActiveProjectSummary(resolvedTotal);
       })
       .catch(()=>{
         const ch = ensureDonut();
@@ -744,6 +776,7 @@
         }
         renderLegend([], []);
         updateCenter(0);
+        updateActiveProjectSummary(0);
       });
   }
 
