@@ -11,6 +11,7 @@ urlpatterns = [
     path("", views.pozicijos_list, name="list"),
     path("tbody/", views.pozicijos_tbody, name="tbody"),
     path("stats/", views.pozicijos_stats, name="stats"),
+    path("export/csv/", views.pozicijos_export_csv, name="export_csv"),
 
     # kurti / redaguoti
     path("nauja/", views.pozicija_create, name="create"),

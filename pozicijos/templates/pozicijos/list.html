@@ -205,6 +205,7 @@
     <input id="q" name="q" type="search" placeholder="Globali paieška..." value="{{ q|default:'' }}">
     <button id="btn-cols" type="button">Stulpeliai</button>
     <button id="btn-clear" type="button">Išvalyti</button>
+    <a id="btn-export-csv" href="{% url 'pozicijos:export_csv' %}" class="btn">Eksportuoti CSV</a>
     <label>Rodyti:
       <select id="page_size" name="page_size">
         <option value="10" {% if page_size == 10 %}selected{% endif %}>10</option>
@@ -333,6 +334,7 @@
   const drawer   = $("#drawer");
   const backdrop = $("#drawer-backdrop");
   const btnClear = $("#btn-clear");
+  const btnExportCsv = $("#btn-export-csv");
 
   const PALETTE = ["#0ea5e9","#22c55e","#f97316","#e11d48","#6366f1","#14b8a6","#facc15","#8b5cf6","#6b7280","#f43f5e","#a855f7","#10b981"];
 
@@ -575,6 +577,15 @@
     }
 
     return p;
+  }
+
+  if (btnExportCsv) {
+    btnExportCsv.addEventListener("click", () => {
+      const params = buildParams();
+      const url = new URL("{% url 'pozicijos:export_csv' %}", location.origin);
+      url.search = params.toString();
+      btnExportCsv.href = url.toString();
+    });
   }
 
   let inflight;

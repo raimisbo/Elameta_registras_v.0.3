@@ -1,6 +1,8 @@
 # pozicijos/views.py
 from __future__ import annotations
 
+import csv
+import textwrap
 from decimal import Decimal
 
 from django.contrib import messages
@@ -218,6 +220,144 @@ def pozicijos_stats(request):
         total += row["cnt"]
 
     return JsonResponse({"labels": labels, "values": values, "total": total})
+
+
+
+def _csv_decimal(value, places: int = 4) -> str:
+    if value is None:
+        return ""
+    try:
+        value = Decimal(value)
+        s = f"{value:.{places}f}"
+    except Exception:
+        s = str(value)
+    return s.replace(".", ",")
+
+
+def _csv_wrap_text(value, width: int = 90) -> str:
+    """
+    CSV neturi tikro Excel word-wrap formatavimo.
+    Todėl ilgesniam tekstui, pvz. Pastaboms, įterpiame realius eilutės lūžius.
+    csv.writer tokį lauką saugiai pacituoja kaip vieną CSV langelį.
+    """
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not text:
+        return ""
+
+    out: list[str] = []
+    for paragraph in text.split("\n"):
+        paragraph = paragraph.strip()
+        if not paragraph:
+            out.append("")
+            continue
+
+        wrapped = textwrap.wrap(
+            paragraph,
+            width=width,
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+        out.extend(wrapped or [paragraph])
+
+    return "\n".join(out)
+
+
+def _csv_value(obj: Pozicija, key: str) -> str:
+    if key == "maskavimo_tipas":
+        return obj.get_maskavimo_tipas_display() or ""
+
+    if key == "pakavimo_tipas":
+        return obj.get_pakavimo_tipas_display() or ""
+
+    if key == "atlikimo_terminas":
+        value = getattr(obj, "atlikimo_terminas", None)
+        return f"{value} d.d." if value is not None else ""
+
+    if key == "brez_count":
+        return str(getattr(obj, "brez_count", 0) or 0)
+
+    if key == "dok_count":
+        return str(getattr(obj, "dok_count", 0) or 0)
+
+    if key == "matmenys_xyz":
+        return str(getattr(obj, "matmenys_xyz", "") or "")
+
+    if key == "ktl_dangos_storis_display":
+        return str(getattr(obj, "ktl_dangos_storis_display", "") or "")
+
+    if key == "miltai_dangos_storis_display":
+        return str(getattr(obj, "miltai_dangos_storis_display", "") or "")
+
+    if key == "metalo_storiai_display":
+        return str(getattr(obj, "metalo_storiai_display", "") or "")
+
+    if key == "kaina_eur":
+        k_min = getattr(obj, "kaina_min", None)
+        k_max = getattr(obj, "kaina_max", None)
+        if k_min is not None and k_max is not None:
+            if k_min == k_max:
+                return _csv_decimal(k_min)
+            return f"{_csv_decimal(k_min)}–{_csv_decimal(k_max)}"
+
+        value = getattr(obj, "kaina_eur", None)
+        return _csv_decimal(value) if value is not None else ""
+
+    if key == "pastabos":
+        return _csv_wrap_text(getattr(obj, "pastabos", ""), width=90)
+
+    value = getattr(obj, key, None)
+    if value is None:
+        return ""
+
+    get_display = getattr(obj, f"get_{key}_display", None)
+    if callable(get_display):
+        try:
+            display_value = get_display()
+            if display_value not in (None, ""):
+                return str(display_value)
+        except Exception:
+            pass
+
+    if isinstance(value, Decimal):
+        return str(value).replace(".", ",")
+
+    if hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d")
+
+    return str(value)
+
+
+def pozicijos_export_csv(request):
+    visible_cols = visible_cols_from_request(request)
+    visible_cols_set = set(visible_cols)
+
+    export_columns = [
+        c for c in COLUMNS
+        if c.get("key") in visible_cols_set
+    ]
+
+    qs = _base_list_qs()
+    qs = apply_filters(qs, request)
+    qs = apply_sorting(qs, request)
+
+    items = _attach_metalo_storiai_display(qs)
+
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="pozicijos_export.csv"'
+
+    # UTF-8 BOM, kad Excel teisingai atidarytų lietuviškas raides.
+    response.write("\ufeff")
+
+    writer = csv.writer(response, delimiter=";")
+    writer.writerow([c.get("label", c.get("key", "")) for c in export_columns])
+
+    for obj in items:
+        writer.writerow([
+            _csv_value(obj, c.get("key", ""))
+            for c in export_columns
+        ])
+
+    return response
 
 
 def pozicija_detail(request: HttpRequest, pk: int) -> HttpResponse:
