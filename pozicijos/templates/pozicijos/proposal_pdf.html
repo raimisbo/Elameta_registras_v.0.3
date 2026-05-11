@@ -281,18 +281,6 @@
   </section>
   {% endif %}
 
-  {% if pozicija.pastabos or notes %}
-  <section class="card">
-    <h2>{{ labels.section_notes }}</h2>
-    <div class="notes">
-      {% if pozicija.pastabos %}{{ pozicija.pastabos }}{% endif %}
-      {% if pozicija.pastabos and notes %}
-
-{% endif %}
-      {% if notes %}{{ notes }}{% endif %}
-    </div>
-  </section>
-  {% endif %}
 
 </div>
 {% endwith %}
@@ -410,18 +398,6 @@
   </section>
   {% endif %}
 
-  {% if pozicija.pastabos or notes %}
-  <section class="card">
-    <h2>{{ labels.section_notes }}</h2>
-    <div class="notes">
-      {% if pozicija.pastabos %}{{ pozicija.pastabos }}{% endif %}
-      {% if pozicija.pastabos and notes %}
-
-      {% endif %}
-      {% if notes %}{{ notes }}{% endif %}
-    </div>
-  </section>
-  {% endif %}
 
 </div>
 {% endif %}
