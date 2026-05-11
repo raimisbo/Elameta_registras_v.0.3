@@ -33,6 +33,18 @@ COPYFILE_DISABLE=1 zip -r "$OUT_ZIP" . \
   -x "./env/*" \
   -x "staticfiles/*" \
   -x "./staticfiles/*" \
+  -x "logs" \
+  -x "./logs" \
+  -x "logs/" \
+  -x "./logs/" \
+  -x "logs/*" \
+  -x "./logs/*" \
+  -x "backups" \
+  -x "./backups" \
+  -x "backups/" \
+  -x "./backups/" \
+  -x "backups/*" \
+  -x "./backups/*" \
   -x "media" \
   -x "./media" \
   -x "media/" \
