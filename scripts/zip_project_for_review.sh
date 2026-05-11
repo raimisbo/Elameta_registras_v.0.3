@@ -1,72 +1,55 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT_NAME="$(basename "$PROJECT_ROOT")"
-STAMP="$(date +%Y%m%d-%H%M%S)"
-OUT_ZIP="${PROJECT_ROOT}/../${PROJECT_NAME}-review-${STAMP}.zip"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_NAME="$(basename "$ROOT")"
+PARENT_DIR="$(dirname "$ROOT")"
+TS="$(date +%Y%m%d-%H%M%S)"
+ZIP_PATH="${PARENT_DIR}/${PROJECT_NAME}-review-${TS}.zip"
 
-cd "$PROJECT_ROOT"
+TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/${PROJECT_NAME}-review.XXXXXX")"
+cleanup() {
+  rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
 
-if [[ ! -f "manage.py" ]]; then
-  echo "KLAIDA: manage.py nerastas."
-  exit 1
-fi
+echo "===== REVIEW ZIP ====="
+echo "Project: $ROOT"
+echo "Output:  $ZIP_PATH"
+echo
 
-echo "Kuriamas švarus review ZIP:"
-echo "$OUT_ZIP"
+mkdir -p "$TMP_DIR/$PROJECT_NAME"
 
-COPYFILE_DISABLE=1 zip -r "$OUT_ZIP" . \
-  -x ".git/*" \
-  -x "./.git/*" \
-  -x ".idea/*" \
-  -x "./.idea/*" \
-  -x ".vscode/*" \
-  -x "./.vscode/*" \
-  -x ".venv/*" \
-  -x "./.venv/*" \
-  -x ".venvs/*" \
-  -x "./.venvs/*" \
-  -x "venv/*" \
-  -x "./venv/*" \
-  -x "env/*" \
-  -x "./env/*" \
-  -x "staticfiles/*" \
-  -x "./staticfiles/*" \
-  -x "logs" \
-  -x "./logs" \
-  -x "logs/" \
-  -x "./logs/" \
-  -x "logs/*" \
-  -x "./logs/*" \
-  -x "backups" \
-  -x "./backups" \
-  -x "backups/" \
-  -x "./backups/" \
-  -x "backups/*" \
-  -x "./backups/*" \
-  -x "media" \
-  -x "./media" \
-  -x "media/" \
-  -x "./media/" \
-  -x "media/*" \
-  -x "./media/*" \
-  -x "__pycache__/*" \
-  -x "*/__pycache__/*" \
-  -x "*.pyc" \
-  -x "*.pyo" \
-  -x "*.pyd" \
-  -x ".DS_Store" \
-  -x "*/.DS_Store" \
-  -x "._*" \
-  -x "*/._*" \
-  -x "__MACOSX/*" \
-  -x "*.zip" \
-  -x "db.sqlite3" \
-  -x "*.sqlite3-journal" \
-  -x "*.sqlite3-wal" \
-  -x "*.sqlite3-shm"
+rsync -a "$ROOT/" "$TMP_DIR/$PROJECT_NAME/" \
+  --exclude ".git/" \
+  --exclude ".idea/" \
+  --exclude ".vscode/" \
+  --exclude ".venv/" \
+  --exclude ".venvs/" \
+  --exclude "venv/" \
+  --exclude "__pycache__/" \
+  --exclude "*.pyc" \
+  --exclude ".DS_Store" \
+  --exclude "node_modules/" \
+  --exclude "staticfiles/" \
+  --exclude "media/" \
+  --exclude "logs/" \
+  --exclude "backups/" \
+  --exclude "db.sqlite3" \
+  --exclude "*.sqlite3-journal"
+
+cd "$TMP_DIR"
+zip -qr "$ZIP_PATH" "$PROJECT_NAME"
+
+echo "===== CREATED ====="
+ls -lh "$ZIP_PATH"
 
 echo
-echo "OK: $OUT_ZIP"
-echo "Šitas ZIP skirtas kodo peržiūrai. DB ir media į jį sąmoningai neįtraukti."
+echo "===== CLEAN CHECK ====="
+if unzip -Z1 "$ZIP_PATH" | grep -E '(^|/)(logs|backups|media|db\.sqlite3|\.git|\.idea|\.venv|\.venvs|__pycache__|node_modules|staticfiles)(/|$)' ; then
+  echo
+  echo "KLAIDA: ZIP nėra švarus – rasti nereikalingi failai/katalogai."
+  exit 1
+else
+  echo "OK: švarus review ZIP"
+fi
