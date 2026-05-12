@@ -243,7 +243,6 @@ OFFER_FIELD_ORDER = [
     "padengimo_standartas",
     "ktl_dangos_storis_display",
     "miltai_dangos_storis_display",
-    "spalva",
     "miltu_kodas",
     "miltu_spalva",
     "miltu_blizgumas",
