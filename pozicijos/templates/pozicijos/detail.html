@@ -6,6 +6,24 @@
 
 {% block page_css %}
 <style>
+  @keyframes ktlMismatchNumberPulse {
+    0%, 100% {
+      color: #991b1b;
+      opacity: 1;
+    }
+    50% {
+      color: #dc2626;
+      opacity: .45;
+    }
+  }
+
+  .ktl-mismatch-number {
+    color: #991b1b;
+    font-weight: 700;
+    animation: ktlMismatchNumberPulse 1.8s ease-in-out infinite;
+  }
+</style>
+<style>
   .pozicija-detail-page { background:#f3f3f3; }
   .poz-detail-container { max-width:1200px; margin:0 auto; padding:16px 20px 32px; }
 
@@ -301,8 +319,22 @@
             <div class="poz-field-row"><span class="poz-field-label">Detalių kiekis rėme</span><span
                     class="poz-field-value">{% if pozicija.ktl_detaliu_kiekis_reme is not None %}{{ pozicija.ktl_detaliu_kiekis_reme|floatformat:0 }}{% else %}—{% endif %}</span>
             </div>
-            <div class="poz-field-row"><span class="poz-field-label">Faktinis kiekis rėme</span><span
-                    class="poz-field-value">{% if pozicija.ktl_faktinis_kiekis_reme is not None %}{{ pozicija.ktl_faktinis_kiekis_reme|floatformat:0 }}{% else %}—{% endif %}</span>
+            <div class="poz-field-row">
+              <span class="poz-field-label">Faktinis kiekis rėme</span>
+              <span class="poz-field-value">
+                {% if pozicija.ktl_faktinis_kiekis_reme is not None %}
+                  {% if pozicija.ktl_detaliu_kiekis_reme is not None and pozicija.ktl_faktinis_kiekis_reme != pozicija.ktl_detaliu_kiekis_reme %}
+                    <span class="ktl-mismatch-number"
+                          title="Faktinis kiekis rėme skiriasi nuo detalių kiekio rėme.">
+                      {{ pozicija.ktl_faktinis_kiekis_reme|floatformat:0 }}
+                    </span>
+                  {% else %}
+                    {{ pozicija.ktl_faktinis_kiekis_reme|floatformat:0 }}
+                  {% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </span>
             </div>
 
             <div class="poz-field-row"><span class="poz-field-label">Detalių išdėstymas rėme (I×A×G)</span><span
