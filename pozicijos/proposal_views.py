@@ -146,6 +146,7 @@ FIELD_LABELS = {
         "metalo_storis": "Metalo storis (mm)",
         "plotas": "Plotas (m²)",
         "svoris": "Svoris (kg)",
+        "plotas_svoris": "Plotas / svoris",
         "x_mm": "X (mm)",
         "y_mm": "Y (mm)",
         "z_mm": "Z (mm)",
@@ -153,6 +154,8 @@ FIELD_LABELS = {
         "paruosimas": "Paruošimas",
         "padengimas": "Padengimas",
         "padengimo_standartas": "Padengimo standartas",
+        "ktl_dangos_storis_display": "KTL storis (µm)",
+        "miltai_dangos_storis_display": "Miltų storis (µm)",
         "spalva": "Spalva",
         "miltu_kodas": "Miltų kodas",
         "miltu_spalva": "Miltų spalva",
@@ -178,6 +181,7 @@ FIELD_LABELS = {
         "metalo_storis": "Metal thickness (mm)",
         "plotas": "Area (m²)",
         "svoris": "Weight (kg)",
+        "plotas_svoris": "Area / weight",
         "x_mm": "X (mm)",
         "y_mm": "Y (mm)",
         "z_mm": "Z (mm)",
@@ -185,6 +189,8 @@ FIELD_LABELS = {
         "paruosimas": "Preparation",
         "padengimas": "Coating",
         "padengimo_standartas": "Coating standard",
+        "ktl_dangos_storis_display": "KTL thickness (µm)",
+        "miltai_dangos_storis_display": "Powder thickness (µm)",
         "spalva": "Color",
         "miltu_kodas": "Powder code",
         "miltu_spalva": "Powder color",
@@ -235,6 +241,8 @@ OFFER_FIELD_ORDER = [
     "paruosimas",
     "padengimas",
     "padengimo_standartas",
+    "ktl_dangos_storis_display",
+    "miltai_dangos_storis_display",
     "spalva",
     "miltu_kodas",
     "miltu_spalva",
@@ -263,6 +271,20 @@ EXCLUDED_FIELD_NAMES = {
 # ============================================================================
 # Business extraction
 # ============================================================================
+
+def _value_with_unit(value, unit: str) -> str:
+    s = str(value or "").strip()
+    if not s:
+        return ""
+
+    low = s.lower()
+    if unit == "m²" and ("m²" in low or "m2" in low or "m^2" in low):
+        return s
+    if unit.lower() in low:
+        return s
+
+    return f"{s} {unit}"
+
 
 def _metalo_storiai_display(pozicija: Pozicija) -> str:
     vals = []
@@ -304,6 +326,41 @@ def _build_field_rows(pozicija: Pozicija, lang: str) -> list[tuple[str, str]]:
             ms = _metalo_storiai_display(pozicija)
             if ms:
                 rows.append((labels_map.get("metalo_storis", "Metalo storis"), ms))
+            continue
+
+        # Pasiūlyme Plotas / Svoris rodome viena eilute.
+        if name == "plotas":
+            plotas = str(getattr(pozicija, "plotas", "") or "").strip()
+            svoris = str(getattr(pozicija, "svoris", "") or "").strip()
+
+            parts = []
+            if plotas:
+                parts.append(_value_with_unit(plotas, "m²"))
+            if svoris:
+                parts.append(_value_with_unit(svoris, "kg"))
+
+            if parts:
+                rows.append((labels_map.get("plotas_svoris", "Plotas / svoris"), " / ".join(parts)))
+            continue
+
+        if name == "svoris":
+            continue
+
+        # KTL storis rodomas, jei yra reikšmė.
+        if name == "ktl_dangos_storis_display":
+            value_str = str(getattr(pozicija, "ktl_dangos_storis_display", "") or "").strip()
+            if value_str:
+                rows.append((labels_map.get("ktl_dangos_storis_display", "KTL storis (µm)"), value_str))
+            continue
+
+        # Miltų storis rodomas tik kai Miltai pasirinkti ir yra reikšmė.
+        if name == "miltai_dangos_storis_display":
+            if not getattr(pozicija, "paslauga_miltai", False):
+                continue
+
+            value_str = str(getattr(pozicija, "miltai_dangos_storis_display", "") or "").strip()
+            if value_str:
+                rows.append((labels_map.get("miltai_dangos_storis_display", "Miltų storis (µm)"), value_str))
             continue
 
         # Pasiūlyme X/Y/Z rodome viena eilute per matmenys_xyz,
