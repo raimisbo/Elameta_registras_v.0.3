@@ -256,8 +256,8 @@
     // KTL automatinės reikšmės
     var padengimasText = $("#id_padengimas");
     var padengimoStandartasText = $("#id_padengimo_standartas");
-    var KTL_PADENGIMAS_AUTO = "KTL";
-    var KTL_PADENGIMO_STANDARTAS_AUTO = "BASF CG 570";
+    var KTL_PADENGIMAS_AUTO = "BASF CG 570 RAL 9005";
+    var KTL_PADENGIMAS_OLD_AUTO = "KTL";
     var KTL_PADENGIMAS_LEGACY_AUTO = "KTL BASF CG 570";
 
     // Paruošimo checkbox wrapper (tavo template turi: <label id="paruosimas-lock-wrap">...)
@@ -306,41 +306,29 @@
     }
 
     function applyKtlAutofill(ktlOn) {
-      if (!padengimasText || !padengimoStandartasText) return;
+      if (!padengimasText) return;
 
       var padengimasValue = String(padengimasText.value || "").trim();
-      var standartasValue = String(padengimoStandartasText.value || "").trim();
 
       if (ktlOn) {
         if (
           padengimasValue === "" ||
           padengimasText.dataset.autofillKtl === "1" ||
+          padengimasValue === KTL_PADENGIMAS_OLD_AUTO ||
           padengimasValue === KTL_PADENGIMAS_LEGACY_AUTO
         ) {
           padengimasText.value = KTL_PADENGIMAS_AUTO;
           padengimasText.dataset.autofillKtl = "1";
         }
-
-        if (standartasValue === "" || padengimoStandartasText.dataset.autofillKtl === "1") {
-          padengimoStandartasText.value = KTL_PADENGIMO_STANDARTAS_AUTO;
-          padengimoStandartasText.dataset.autofillKtl = "1";
-        }
       } else {
         if (
           padengimasText.dataset.autofillKtl === "1" ||
           padengimasValue === KTL_PADENGIMAS_AUTO ||
+          padengimasValue === KTL_PADENGIMAS_OLD_AUTO ||
           padengimasValue === KTL_PADENGIMAS_LEGACY_AUTO
         ) {
           padengimasText.value = "";
           delete padengimasText.dataset.autofillKtl;
-        }
-
-        if (
-          padengimoStandartasText.dataset.autofillKtl === "1" ||
-          standartasValue === KTL_PADENGIMO_STANDARTAS_AUTO
-        ) {
-          padengimoStandartasText.value = "";
-          delete padengimoStandartasText.dataset.autofillKtl;
         }
       }
     }
