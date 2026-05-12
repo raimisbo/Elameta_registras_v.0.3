@@ -940,29 +940,34 @@ def proposal_pdf(request, pk: int):
 
     hero_prepared = hero_source[0] if show_drawings and hero_source else None
 
-    if hero_prepared:
-        # Brėžinio dėžė:
-        # - santykis aukštis/plotis = 2/3
-        # - nebecentruojame per visą puslapį
-        # - centruojame tik laisvoje zonoje tarp kairiojo antraštės bloko
-        #   („Komercinis pasiūlymas“) pabaigos ir dešinio puslapio krašto
+    # Hero zonos geometriją skaičiuojame visada, kai show_drawings=True.
+    # Taip PDF kepurės išdėstymas nesikeičia net tada, kai brėžinio nėra:
+    # dešinėje tiesiog lieka tuščia vieta.
+    hero_x = None
+    hero_y = None
+    hero_box_w = None
+    hero_box_h = None
+
+    if show_drawings:
         title_block_right = margin_left + 72 * mm
         free_left = title_block_right + 6 * mm
         free_right = W - margin_right
         free_w = max(60 * mm, free_right - free_left)
 
-        # Šiek tiek siauresnė dėžė negu visa laisva zona,
-        # kad neatrodytų per plati.
+        # Tokie patys matmenys kaip ir su brėžiniu.
         hero_box_w = free_w * 0.78
         hero_box_h = hero_box_w * (2.0 / 3.0)
 
-        # Centruojame tik laisvoje dešinėje zonoje.
+        # Centruojame laisvoje dešinėje zonoje.
         hero_x = free_left + (free_w - hero_box_w) / 2
 
-        # Data yra viršuje dešinėje; brėžinį dedame beveik iškart po ja.
-        hero_top_y = H - 23 * mm
+        # Data yra viršuje dešinėje; hero zoną laikome žemiau datos bloko.
+        # Jei header_date_y nėra sukurtas, reiškia rodom tik vieną datos eilutę.
+        date_block_bottom_y = locals().get("header_date_y", H - 22.2 * mm)
+        hero_top_y = date_block_bottom_y - 2 * mm
         hero_y = hero_top_y - hero_box_h
 
+    if hero_prepared and hero_x is not None and hero_y is not None and hero_box_w is not None and hero_box_h is not None:
         c.setStrokeColor(colors.HexColor("#e5e7eb"))
         c.setLineWidth(0.6)
         c.rect(hero_x, hero_y, hero_box_w, hero_box_h, stroke=1, fill=0)
@@ -996,6 +1001,10 @@ def proposal_pdf(request, pk: int):
             c.setFillColor(colors.HexColor("#9ca3af"))
             c.drawCentredString(hero_x + hero_box_w / 2, hero_y + hero_box_h / 2, hero_kind)
 
+    # SVARBU:
+    # jei show_drawings=True, rezervuojame tą pačią vietą net kai brėžinio nėra.
+    # Todėl „Pagrindinė informacija“ prasideda toje pačioje vietoje.
+    if show_drawings and hero_y is not None:
         y = hero_y - 10 * mm
     else:
         y = H - 46 * mm
