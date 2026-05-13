@@ -316,7 +316,7 @@ COLUMNS: list[dict] = [
     },
     {
         "key": "pastabos",
-        "label": "Pastabos",
+        "label": "Pastabos Elametai",
         "type": "char",
         "filter": "text",
         "searchable": False,

@@ -156,6 +156,8 @@ class PozicijaForm(forms.ModelForm):
             "poz_pavad": "Detalės pavadinimas",
             "pakavimas": "Aprašymas",
             "instrukcija": "Pastabos",
+            "paslaugu_pastabos": "Pastabos Klientui",
+            "pastabos": "Pastabos Elametai",
         }
         widgets = {
             "atlikimo_terminas": forms.NumberInput(attrs={"min": 0, "step": 1, "inputmode": "numeric"}),

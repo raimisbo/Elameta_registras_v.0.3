@@ -170,7 +170,7 @@ FIELD_LABELS = {
         "paslauga_ktl": "KTL",
         "paslauga_miltai": "Miltai",
         "paslauga_paruosimas": "Paruošimas",
-        "paslaugu_pastabos": "Paslaugų pastabos",
+        "paslaugu_pastabos": "Pastabos Klientui",
     },
     "en": {
         "klientas": "Customer",
@@ -205,7 +205,7 @@ FIELD_LABELS = {
         "paslauga_ktl": "KTL",
         "paslauga_miltai": "Powder",
         "paslauga_paruosimas": "Preparation",
-        "paslaugu_pastabos": "Service notes",
+        "paslaugu_pastabos": "Customer notes",
     },
 }
 
