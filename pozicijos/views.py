@@ -6,11 +6,13 @@ import textwrap
 from decimal import Decimal
 
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, IntegerField, Value, Q, Min, Max, CharField
 from django.db.models.functions import Cast, Coalesce
 from django.http import JsonResponse, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render, redirect
+from django.template.loader import render_to_string
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 
@@ -153,18 +155,44 @@ def _attach_metalo_storiai_display(items):
     return items
 
 
+def _page_size_from_request(request) -> int:
+    allowed = {10, 25, 50, 100}
+    page_size = _safe_int(request.GET.get("page_size", 25), 25)
+    return page_size if page_size in allowed else 25
+
+
+def _page_number_from_request(request) -> int:
+    page = _safe_int(request.GET.get("page", 1), 1)
+    return max(page, 1)
+
+
+def _paginate_list_qs(qs, request):
+    page_size = _page_size_from_request(request)
+    paginator = Paginator(qs, page_size)
+    page_obj = paginator.get_page(_page_number_from_request(request))
+    items = _attach_metalo_storiai_display(page_obj.object_list)
+    page_range = list(
+        paginator.get_elided_page_range(
+            number=page_obj.number,
+            on_each_side=2,
+            on_ends=1,
+        )
+    )
+    return page_size, paginator, page_obj, page_range, items
+
+
 def pozicijos_list(request):
     visible_cols = visible_cols_from_request(request)
     q = request.GET.get("q", "").strip()
-    page_size = _safe_int(request.GET.get("page_size", 25), 25)
 
     current_sort = request.GET.get("sort", "")
     current_dir = request.GET.get("dir", "asc")
 
     qs = _base_list_qs()
     qs = apply_filters(qs, request)
-    qs = apply_sorting(qs, request)[:page_size]
-    items = _attach_metalo_storiai_display(qs)
+    qs = apply_sorting(qs, request)
+
+    page_size, paginator, page_obj, page_range, items = _paginate_list_qs(qs, request)
 
     context = {
         "columns_schema": COLUMNS,
@@ -172,6 +200,9 @@ def pozicijos_list(request):
         "items": items,
         "q": q,
         "page_size": page_size,
+        "page_obj": page_obj,
+        "paginator": paginator,
+        "page_range": page_range,
         "f": _filter_values_from_request(request),
         "current_sort": current_sort,
         "current_dir": current_dir,
@@ -181,26 +212,36 @@ def pozicijos_list(request):
 
 def pozicijos_tbody(request):
     visible_cols = visible_cols_from_request(request)
-    page_size = _safe_int(request.GET.get("page_size", 25), 25)
 
     current_sort = request.GET.get("sort", "")
     current_dir = request.GET.get("dir", "asc")
 
     qs = _base_list_qs()
     qs = apply_filters(qs, request)
-    qs = apply_sorting(qs, request)[:page_size]
-    items = _attach_metalo_storiai_display(qs)
+    qs = apply_sorting(qs, request)
 
-    return render(
-        request,
-        "pozicijos/_tbody.html",
+    page_size, paginator, page_obj, page_range, items = _paginate_list_qs(qs, request)
+
+    context = {
+        "columns_schema": COLUMNS,
+        "visible_cols": visible_cols,
+        "items": items,
+        "page_size": page_size,
+        "page_obj": page_obj,
+        "paginator": paginator,
+        "page_range": page_range,
+        "current_sort": current_sort,
+        "current_dir": current_dir,
+    }
+
+    return JsonResponse(
         {
-            "columns_schema": COLUMNS,
-            "visible_cols": visible_cols,
-            "items": items,
-            "current_sort": current_sort,
-            "current_dir": current_dir,
-        },
+            "tbody": render_to_string("pozicijos/_tbody.html", context, request=request),
+            "pagination": render_to_string("pozicijos/_pagination.html", context, request=request),
+            "page": page_obj.number,
+            "pages": paginator.num_pages,
+            "count": paginator.count,
+        }
     )
 
 

@@ -175,6 +175,51 @@
     opacity:.65;
   }
 
+  .pagination-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin:12px 0 18px;
+    padding:8px 0;
+    font-size:.92rem;
+  }
+  .pagination-summary{
+    color:#374151;
+    white-space:nowrap;
+  }
+  .pagination-buttons{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    justify-content:flex-end;
+  }
+  .pagination-btn{
+    border:1px solid #d1d5db;
+    background:#fff;
+    border-radius:6px;
+    padding:5px 9px;
+    cursor:pointer;
+  }
+  .pagination-btn:hover:not(:disabled){
+    background:#f3f4f6;
+  }
+  .pagination-btn:disabled{
+    cursor:default;
+    opacity:.55;
+  }
+  .pagination-btn.is-current{
+    opacity:1;
+    font-weight:700;
+    border-color:#2563eb;
+    color:#1d4ed8;
+    background:#eff6ff;
+  }
+  .pagination-ellipsis{
+    padding:5px 3px;
+    color:#6b7280;
+  }
+
   .drawer-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:.2s;}
   .drawer-backdrop.open{opacity:1; pointer-events:auto;}
   .drawer{position:fixed; top:0; right:-320px; width:320px; height:100vh; background:#fff; box-shadow:-2px 0 8px rgba(0,0,0,.25); transition:.2s; display:flex; flex-direction:column; z-index:100;}
@@ -269,6 +314,10 @@
   </table>
 </div>
 
+<div id="pagination">
+  {% include "pozicijos/_pagination.html" %}
+</div>
+
 <div id="drawer-backdrop" class="drawer-backdrop"></div>
 <aside id="drawer" class="drawer">
   <div class="drawer-header">
@@ -338,6 +387,18 @@
     } catch(e) {}
   })();
 
+  let currentPage = 1;
+
+  (function readPageFromUrl(){
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const p = parseInt(params.get("page") || "1", 10);
+      currentPage = Number.isFinite(p) && p > 0 ? p : 1;
+    } catch(e) {
+      currentPage = 1;
+    }
+  })();
+
   const table    = $("#pozicijos-table");
   const wrap     = $("#pozicijos-wrap");
   const q        = $("#q");
@@ -347,6 +408,7 @@
   const backdrop = $("#drawer-backdrop");
   const btnClear = $("#btn-clear");
   const btnExportCsv = $("#btn-export-csv");
+  const pagination = $("#pagination");
   const activeProjectSummary = $("#active-project-summary");
 
   const PALETTE = ["#0ea5e9","#22c55e","#f97316","#e11d48","#6366f1","#14b8a6","#facc15","#8b5cf6","#6b7280","#f43f5e","#a855f7","#10b981"];
@@ -583,6 +645,7 @@
     Object.entries(filters).forEach(([k,v]) => p.set(`f[${k}]`, v));
 
     if (pageSize) p.set("page_size", pageSize.value);
+    p.set("page", String(currentPage));
 
     if (sortKey) {
       p.set("sort", sortKey);
@@ -615,11 +678,19 @@
     if (inflight) inflight.abort();
     inflight = new AbortController();
     fetch(url, {signal: inflight.signal})
-      .then(r => r.text())
-      .then(html => {
-        $("#tbody").innerHTML = html;
+      .then(r => r.json())
+      .then(data => {
+        $("#tbody").innerHTML = data.tbody || "";
+        if (pagination) pagination.innerHTML = data.pagination || "";
+
+        if (data.page) {
+          const serverPage = parseInt(data.page, 10);
+          if (Number.isFinite(serverPage) && serverPage > 0) currentPage = serverPage;
+        }
+
         renderChips();
-        history.replaceState(null, "", "?" + params.toString());
+        const historyParams = buildParams();
+        history.replaceState(null, "", "?" + historyParams.toString());
         fetchStatsAndRender();
         document.dispatchEvent(new Event("tbody:reloaded"));
 
@@ -635,7 +706,7 @@
     let t;
     return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); };
   };
-  const debouncedFetch = debounce(fetchTbody, 300);
+  const debouncedFetch = debounce(() => { currentPage = 1; fetchTbody(); }, 300);
 
   if (q) q.addEventListener("input", debouncedFetch);
 
@@ -644,12 +715,26 @@
     inp.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
+        currentPage = 1;
         fetchTbody();
       }
     });
   });
 
-  if (pageSize) pageSize.addEventListener("change", fetchTbody);
+  if (pageSize) pageSize.addEventListener("change", () => { currentPage = 1; fetchTbody(); });
+
+  if (pagination) {
+    pagination.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-page]");
+      if (!btn || btn.disabled) return;
+
+      const p = parseInt(btn.dataset.page || "1", 10);
+      if (!Number.isFinite(p) || p < 1) return;
+
+      currentPage = p;
+      fetchTbody();
+    });
+  }
 
   if (btnClear) btnClear.addEventListener("click", () => {
     if (q) q.value = "";
@@ -670,7 +755,7 @@
     chips.innerHTML = "";
 
     if (q && q.value.trim()){
-      chips.append(chipEl("q: " + q.value, () => { q.value=""; fetchTbody(); }));
+      chips.append(chipEl("q: " + q.value, () => { q.value=""; currentPage=1; fetchTbody(); }));
     }
 
     const filters = collectFiltersAndMarkInvalid();
@@ -681,6 +766,7 @@
           inp.value = "";
           inp.classList.remove("is-invalid");
         }
+        currentPage = 1;
         fetchTbody();
       }));
     });
@@ -851,6 +937,7 @@
       if (sortKey === key) sortDir = (sortDir === "asc" ? "desc" : "asc");
       else { sortKey = key; sortDir = "asc"; }
 
+      currentPage = 1;
       updateSortIndicators();
       fetchTbody();
     });

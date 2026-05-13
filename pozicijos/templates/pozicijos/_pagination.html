@@ -1,0 +1,42 @@
+{% if page_obj %}
+<div class="pagination-bar"
+     data-page="{{ page_obj.number }}"
+     data-pages="{{ paginator.num_pages }}"
+     data-count="{{ paginator.count }}">
+  <div class="pagination-summary">
+    {% if paginator.count %}
+      Rodoma {{ page_obj.start_index }}–{{ page_obj.end_index }} iš {{ paginator.count }}
+    {% else %}
+      Rodoma 0 iš 0
+    {% endif %}
+  </div>
+
+  {% if paginator.num_pages > 1 %}
+    <div class="pagination-buttons">
+      <button type="button"
+              class="pagination-btn"
+              data-page="{% if page_obj.has_previous %}{{ page_obj.previous_page_number }}{% else %}{{ page_obj.number }}{% endif %}"
+              {% if not page_obj.has_previous %}disabled{% endif %}>
+        ‹ Ankstesnis
+      </button>
+
+      {% for p in page_range %}
+        {% if p == "…" %}
+          <span class="pagination-ellipsis">…</span>
+        {% elif p == page_obj.number %}
+          <button type="button" class="pagination-btn is-current" data-page="{{ p }}" disabled>{{ p }}</button>
+        {% else %}
+          <button type="button" class="pagination-btn" data-page="{{ p }}">{{ p }}</button>
+        {% endif %}
+      {% endfor %}
+
+      <button type="button"
+              class="pagination-btn"
+              data-page="{% if page_obj.has_next %}{{ page_obj.next_page_number }}{% else %}{{ page_obj.number }}{% endif %}"
+              {% if not page_obj.has_next %}disabled{% endif %}>
+        Kitas ›
+      </button>
+    </div>
+  {% endif %}
+</div>
+{% endif %}
