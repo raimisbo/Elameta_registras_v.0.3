@@ -67,10 +67,15 @@
   .donut-legend .dot{width:10px; height:10px; border-radius:50%;}
 
   .table-wrap{
-    overflow:auto;
-    max-height:calc(100vh - 180px);
+    overflow-x:auto;
+    overflow-y:visible;
+    max-height:none;
     border:1px solid #ddd;
     background:#fff;
+    margin-top:.5rem;
+    margin-bottom:.75rem;
+    position:relative;
+    z-index:1;
   }
 
   #pozicijos-table{
@@ -231,9 +236,20 @@
   #cols-list { display:flex; flex-direction:column; gap:.35rem; }
   #cols-list label { display:flex; gap:.4rem; align-items:center; }
 
-  /* Papildomai – kad vertikalus scroll būtų per visą puslapį, o ne tik per table-wrap */
-  .table-wrap{ overflow: visible !important; }
-  main, .content{ overflow: visible !important; }
+  /* Zoom apsauga: pagination turi likti atskirai nuo lentelės ir virš sticky stulpelių. */
+  #pagination{
+    position:relative;
+    z-index:300;
+    clear:both;
+    background:#fff;
+    margin-top:.75rem;
+    padding:.35rem 0;
+  }
+  #pagination .pagination-bar{
+    position:relative;
+    z-index:301;
+    background:#fff;
+  }
 </style>
 {% endblock %}
 
