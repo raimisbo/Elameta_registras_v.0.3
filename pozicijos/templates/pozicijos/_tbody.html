@@ -19,7 +19,22 @@
           {% endif %}
 
         {% elif c.key == "brez_count" %}
-          {{ it.brez_count|default:"0" }}
+          {% if it.brez_count %}
+            {% with pilot=it.breziniai.all|first %}
+              {% if pilot %}
+                <span
+                  class="drawing-hover-trigger"
+                  data-thumb-url="{{ pilot.thumb_url|default:'' }}"
+                  data-kind="{% if pilot.is_step %}3D / STEP{% elif pilot.is_pdf %}PDF{% else %}FAILAS{% endif %}"
+                  data-title="{% firstof pilot.pavadinimas pilot.filename 'Brėžinys' %}"
+                >{{ it.brez_count }}</span>
+              {% else %}
+                {{ it.brez_count }}
+              {% endif %}
+            {% endwith %}
+          {% else %}
+            0
+          {% endif %}
 
         {% elif c.key == "dok_count" %}
           {{ it.dok_count|default:"0" }}

@@ -96,6 +96,7 @@ def _base_list_qs():
     """
     return (
         Pozicija.objects.all()
+        .prefetch_related("breziniai")
         .annotate(brez_count=Count("breziniai", distinct=True))
         .annotate(dok_count=Value(0, output_field=IntegerField()))
         .annotate(

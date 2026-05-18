@@ -120,6 +120,56 @@
     white-space:nowrap;
   }
 
+  .drawing-hover-trigger{
+    color:#2563eb;
+    font-weight:700;
+    text-decoration:underline;
+    text-underline-offset:2px;
+    cursor:zoom-in;
+  }
+  .drawing-hover-popover{
+    position:fixed;
+    display:none;
+    z-index:10000;
+    width:260px;
+    max-width:calc(100vw - 24px);
+    padding:8px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    background:#fff;
+    box-shadow:0 10px 30px rgba(0,0,0,.22);
+    pointer-events:none;
+  }
+  .drawing-hover-popover.is-visible{
+    display:block;
+  }
+  .drawing-hover-popover img{
+    display:block;
+    width:100%;
+    max-height:180px;
+    object-fit:contain;
+    background:#f9fafb;
+    border-radius:8px;
+  }
+  .drawing-hover-popover-placeholder{
+    height:150px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#f9fafb;
+    border-radius:8px;
+    color:#6b7280;
+    font-weight:700;
+  }
+  .drawing-hover-popover-title{
+    margin-top:6px;
+    font-size:.82rem;
+    color:#374151;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
   .cols-actions{
     display:grid;
     grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -425,6 +475,89 @@
   const btnExportCsv = $("#btn-export-csv");
   const pagination = $("#pagination");
   const activeProjectSummary = $("#active-project-summary");
+
+  function ensureDrawingPopover(){
+    let pop = document.getElementById("drawing-hover-popover");
+    if (pop) return pop;
+
+    pop = document.createElement("div");
+    pop.id = "drawing-hover-popover";
+    pop.className = "drawing-hover-popover";
+    document.body.appendChild(pop);
+    return pop;
+  }
+
+  function positionDrawingPopover(ev, pop){
+    const gap = 14;
+    const pad = 12;
+
+    let x = ev.clientX + gap;
+    let y = ev.clientY + gap;
+
+    const rect = pop.getBoundingClientRect();
+
+    if (x + rect.width + pad > window.innerWidth) {
+      x = ev.clientX - rect.width - gap;
+    }
+    if (y + rect.height + pad > window.innerHeight) {
+      y = ev.clientY - rect.height - gap;
+    }
+
+    pop.style.left = Math.max(pad, x) + "px";
+    pop.style.top = Math.max(pad, y) + "px";
+  }
+
+  function showDrawingPopover(trigger, ev){
+    if (!trigger) return;
+
+    const thumbUrl = trigger.dataset.thumbUrl || "";
+    const kind = trigger.dataset.kind || "FAILAS";
+    const title = trigger.dataset.title || "Brėžinys";
+    const pop = ensureDrawingPopover();
+
+    if (thumbUrl) {
+      pop.innerHTML =
+        '<img src="' + thumbUrl.replace(/"/g, "&quot;") + '" alt="">' +
+        '<div class="drawing-hover-popover-title"></div>';
+    } else {
+      pop.innerHTML =
+        '<div class="drawing-hover-popover-placeholder">' + kind + '</div>' +
+        '<div class="drawing-hover-popover-title"></div>';
+    }
+
+    const titleEl = pop.querySelector(".drawing-hover-popover-title");
+    if (titleEl) titleEl.textContent = title;
+
+    pop.classList.add("is-visible");
+    positionDrawingPopover(ev, pop);
+  }
+
+  function hideDrawingPopover(){
+    const pop = document.getElementById("drawing-hover-popover");
+    if (pop) pop.classList.remove("is-visible");
+  }
+
+  document.addEventListener("mouseover", function(ev){
+    const trigger = ev.target.closest(".drawing-hover-trigger");
+    if (!trigger) return;
+    showDrawingPopover(trigger, ev);
+  });
+
+  document.addEventListener("mousemove", function(ev){
+    const trigger = ev.target.closest(".drawing-hover-trigger");
+    if (!trigger) return;
+    const pop = document.getElementById("drawing-hover-popover");
+    if (pop && pop.classList.contains("is-visible")) {
+      positionDrawingPopover(ev, pop);
+    }
+  });
+
+  document.addEventListener("mouseout", function(ev){
+    const trigger = ev.target.closest(".drawing-hover-trigger");
+    if (!trigger) return;
+    if (trigger.contains(ev.relatedTarget)) return;
+    hideDrawingPopover();
+  });
 
   const PALETTE = ["#0ea5e9","#22c55e","#f97316","#e11d48","#6366f1","#14b8a6","#facc15","#8b5cf6","#6b7280","#f43f5e","#a855f7","#10b981"];
 
