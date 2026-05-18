@@ -34,6 +34,40 @@
     a.btn-secondary,button.btn-secondary{background:#f3f4f6;color:#111827;border-color:#d1d5db}
     a.btn:focus,button.btn:focus{outline:2px solid #60a5fa;outline-offset:2px}
 
+    .app-userbar{
+      background:#fff;
+      border-bottom:1px solid #e5e7eb;
+      font-size:.9rem;
+    }
+    .app-userbar-inner{
+      max-width:1200px;
+      margin:0 auto;
+      padding:8px 16px;
+      display:flex;
+      justify-content:flex-end;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .app-userbar-user{
+      color:#374151;
+    }
+    .app-userbar-link,
+    .app-userbar-logout{
+      border:0;
+      background:none;
+      padding:0;
+      color:#2563eb;
+      text-decoration:underline;
+      text-underline-offset:2px;
+      cursor:pointer;
+      font:inherit;
+    }
+    .app-userbar-link:hover,
+    .app-userbar-logout:hover{
+      color:#1d4ed8;
+    }
+
     .box{border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:12px 0;background:#fff}
     .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     @media(max-width:640px){.grid{grid-template-columns:1fr}}
@@ -45,6 +79,23 @@
 </head>
 
 <body class="{% block body_class %}{% endblock %}">
+  {% if request.user.is_authenticated %}
+    <div class="app-userbar">
+      <div class="app-userbar-inner">
+        <span class="app-userbar-user">Prisijungęs: <strong>{{ request.user.username }}</strong></span>
+
+        {% if request.user.is_superuser %}
+          <a class="app-userbar-link" href="{% url 'admin:index' %}">Admin</a>
+        {% endif %}
+
+        <form method="post" action="{% url 'logout' %}" style="margin:0;">
+          {% csrf_token %}
+          <button type="submit" class="app-userbar-logout">Atsijungti</button>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+
   <main>
     <div class="container">
       {% if messages %}
