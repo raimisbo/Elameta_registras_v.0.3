@@ -704,7 +704,7 @@ def proposal_prepare(request, pk: int):
     if show_prices and not raw_selected_kaina_ids:
         selected_kaina_ids = [k.id for k in available_kainos]
 
-    breziniai = list(pozicija.breziniai.all().order_by("id"))
+    breziniai = list(pozicija.breziniai.all().order_by("eiliskumas", "id"))
 
     selected_brezinys_id = None
     raw_brezinys_id = (request.GET.get("brezinys_id") or "").strip()
@@ -764,32 +764,14 @@ def proposal_pdf(request, pk: int):
     # Klientui skirtos pastabos eina per lauką paslaugu_pastabos, kuris yra field_rows.
     combined_notes = ""
 
-    brez = list(pozicija.breziniai.all().order_by("id"))
+    brez = list(pozicija.breziniai.all().order_by("eiliskumas", "id"))
 
-    # PRIORITETAS: pasiūlyme rodome tik vieną brėžinį.
-    # Jei paruošimo lange pasirinktas brezinys_id – naudojame jį.
-    # Jei nepasirinktas – lieka senoji logika: pirmas su preview, kitaip pirmas failas.
-    selected_brezinys = None
-    raw_brezinys_id = (request.GET.get("brezinys_id") or "").strip()
-
-    if raw_brezinys_id.isdigit():
-        wanted_id = int(raw_brezinys_id)
-        selected_brezinys = next((b for b in brez if b.id == wanted_id), None)
-
-    if selected_brezinys is not None:
-        pilot_brez_prepared = [(selected_brezinys, _resolve_preview_path(selected_brezinys))]
-    else:
-        brez_with_preview = []
-        brez_without_preview = []
-
-        for b in brez:
-            pp = _resolve_preview_path(b)
-            if pp:
-                brez_with_preview.append((b, pp))
-            else:
-                brez_without_preview.append((b, None))
-
-        pilot_brez_prepared = (brez_with_preview + brez_without_preview)[:1]
+    # PRIORITETAS: pasiūlyme rodome pirmą brėžinį pagal detalės eiliškumą.
+    # Vienas tiesos šaltinis: pirmas brėžinys detalės lange = rodomas pasiūlyme.
+    pilot_brez_prepared = []
+    if brez:
+        first_brez = brez[0]
+        pilot_brez_prepared = [(first_brez, _resolve_preview_path(first_brez))]
 
     font_regular, font_bold = _register_fonts()
     notes_style = ParagraphStyle(name="notes", fontName=font_regular, fontSize=9, leading=12)

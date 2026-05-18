@@ -407,7 +407,7 @@ def pozicija_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
     mask_ktl = obj.maskavimo_eilutes.filter(paslauga="ktl").order_by("id")
     mask_milt = obj.maskavimo_eilutes.filter(paslauga="miltai").order_by("id")
-    breziniai = obj.breziniai.all().order_by("-uploaded_at") if hasattr(obj, "breziniai") else []
+    breziniai = obj.breziniai.all().order_by("eiliskumas", "id") if hasattr(obj, "breziniai") else []
     kainos_akt = (
         obj.kainos_eilutes.filter(busena="aktuali").order_by("kiekis_nuo", "kiekis_iki", "id")
         if hasattr(obj, "kainos_eilutes")
