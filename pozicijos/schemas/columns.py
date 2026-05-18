@@ -192,6 +192,7 @@ COLUMNS: list[dict] = [
         "width": 170,
         "default": False,
         "align": "right",
+        "list_hidden": True,
     },
     {
         "key": "miltai_faktinis_kiekis_reme",
@@ -202,6 +203,7 @@ COLUMNS: list[dict] = [
         "width": 170,
         "default": False,
         "align": "right",
+        "list_hidden": True,
     },
 
     # ---------------- Paslauga (paviršius / dažymas) ----------------

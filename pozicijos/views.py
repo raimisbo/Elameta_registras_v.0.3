@@ -30,6 +30,9 @@ from .services.listing import (
 from .services.previews import regenerate_missing_preview
 from .services.sync import sync_pozicija_kaina_eur
 
+LIST_COLUMNS = [c for c in COLUMNS if not c.get("list_hidden")]
+
+
 FORM_SUGGEST_FIELDS = [
     "klientas",
     "projektas",
@@ -197,7 +200,7 @@ def pozicijos_list(request):
     page_size, paginator, page_obj, page_range, items = _paginate_list_qs(qs, request)
 
     context = {
-        "columns_schema": COLUMNS,
+        "columns_schema": LIST_COLUMNS,
         "visible_cols": visible_cols,
         "items": items,
         "q": q,
@@ -225,7 +228,7 @@ def pozicijos_tbody(request):
     page_size, paginator, page_obj, page_range, items = _paginate_list_qs(qs, request)
 
     context = {
-        "columns_schema": COLUMNS,
+        "columns_schema": LIST_COLUMNS,
         "visible_cols": visible_cols,
         "items": items,
         "page_size": page_size,
@@ -375,7 +378,7 @@ def pozicijos_export_csv(request):
     visible_cols_set = set(visible_cols)
 
     export_columns = [
-        c for c in COLUMNS
+        c for c in LIST_COLUMNS
         if c.get("key") in visible_cols_set
     ]
 

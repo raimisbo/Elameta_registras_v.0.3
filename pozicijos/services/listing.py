@@ -360,9 +360,10 @@ def build_date_q(field_name: str, expr: str) -> Optional[Q]:
 # ============================================================================
 
 def visible_cols_from_request(request) -> List[str]:
-    known_keys = [c["key"] for c in COLUMNS]
+    list_columns = [c for c in COLUMNS if not c.get("list_hidden")]
+    known_keys = [c["key"] for c in list_columns]
     known_set = set(known_keys)
-    default_keys = [c["key"] for c in COLUMNS if c.get("default")]
+    default_keys = [c["key"] for c in list_columns if c.get("default")]
 
     if "cols" not in request.GET:
         return default_keys
