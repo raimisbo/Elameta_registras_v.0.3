@@ -15,6 +15,7 @@ from pozicijos.models import (
 
 ROLE_DARBUOTOJAS = "Darbuotojas"
 ROLE_PERZIURA = "Peržiūra"
+ROLE_FORCE_PASSWORD_CHANGE = "Privalomas slaptažodžio keitimas"
 
 ROLE_MODELS = [
     Pozicija,
@@ -31,6 +32,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         darbuotojas, _ = Group.objects.get_or_create(name=ROLE_DARBUOTOJAS)
         perziura, _ = Group.objects.get_or_create(name=ROLE_PERZIURA)
+        Group.objects.get_or_create(name=ROLE_FORCE_PASSWORD_CHANGE)
 
         darbuotojas.permissions.clear()
         perziura.permissions.clear()
@@ -61,3 +63,4 @@ class Command(BaseCommand):
         self.stdout.write(f"  - {ROLE_DARBUOTOJAS}: view/add/change, be delete")
         self.stdout.write(f"  - {ROLE_PERZIURA}: tik view")
         self.stdout.write("  - Admin: superuser")
+        self.stdout.write(f"  - {ROLE_FORCE_PASSWORD_CHANGE}: priverstinis slaptažodžio keitimas")
