@@ -3,6 +3,7 @@ from __future__ import annotations
 from urllib.parse import urlencode
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -55,6 +56,22 @@ def _can_delete_kainos(request: HttpRequest) -> bool:
     return bool(getattr(u, "is_authenticated", False) and getattr(u, "is_superuser", False))
 
 
+def _can_manage_kainos(request: HttpRequest) -> bool:
+    u = getattr(request, "user", None)
+    return bool(
+        getattr(u, "is_authenticated", False)
+        and (
+            u.has_perm("pozicijos.add_kainoseilute")
+            or u.has_perm("pozicijos.change_kainoseilute")
+        )
+    )
+
+
+def _require_manage_kainos(request: HttpRequest) -> None:
+    if not _can_manage_kainos(request):
+        raise PermissionDenied("Kainų valdymas leidžiamas tik darbuotojui arba administratoriui.")
+
+
 @require_http_methods(["GET", "POST"])
 def kainos_list(request: HttpRequest, pk: int) -> HttpResponse:
     """
@@ -63,6 +80,8 @@ def kainos_list(request: HttpRequest, pk: int) -> HttpResponse:
     - busena filtras: DB reikšmės yra "aktuali" / "sena"
     - matas filtras: "Vnt." / "kg" / "komplektas"
     """
+    _require_manage_kainos(request)
+
     pozicija = get_object_or_404(Pozicija, pk=pk)
 
     busena, matas = _get_filters(request)
@@ -165,16 +184,19 @@ def kainos_list(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 def kaina_create(request: HttpRequest, pk: int) -> HttpResponse:
+    _require_manage_kainos(request)
     return redirect("pozicijos:kainos_list", pk=pk)
 
 
 def kaina_update(request: HttpRequest, id: int) -> HttpResponse:
+    _require_manage_kainos(request)
     k = get_object_or_404(KainosEilute, pk=id)
     return redirect("pozicijos:kainos_list", pk=k.pozicija_id)
 
 
 @require_POST
 def kaina_set_aktuali(request: HttpRequest, id: int) -> HttpResponse:
+    _require_manage_kainos(request)
     k = get_object_or_404(KainosEilute, pk=id)
     set_aktuali(k)
     messages.success(request, "Kaina pažymėta kaip aktuali.")
@@ -183,6 +205,7 @@ def kaina_set_aktuali(request: HttpRequest, id: int) -> HttpResponse:
 
 @require_POST
 def kaina_delete(request: HttpRequest, id: int) -> HttpResponse:
+    _require_manage_kainos(request)
     k = get_object_or_404(KainosEilute, pk=id)
     poz_id = k.pozicija_id
 
@@ -198,6 +221,7 @@ def kaina_delete(request: HttpRequest, id: int) -> HttpResponse:
 
 
 def kaina_history(request: HttpRequest, id: int) -> HttpResponse:
+    _require_manage_kainos(request)
     kaina = get_object_or_404(KainosEilute, pk=id)
     history_qs = kaina.history.all().order_by("-history_date")
 

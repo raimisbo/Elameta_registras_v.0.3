@@ -46,6 +46,16 @@ def _require_admin_user(request) -> None:
         raise PermissionDenied("Šis veiksmas leidžiamas tik administratoriui.")
 
 
+def _has_user_perm(request, perm: str) -> bool:
+    u = getattr(request, "user", None)
+    return bool(getattr(u, "is_authenticated", False) and u.has_perm(perm))
+
+
+def _require_user_perm(request, perm: str, message: str) -> None:
+    if not _has_user_perm(request, perm):
+        raise PermissionDenied(message)
+
+
 FORM_SUGGEST_FIELDS = [
     "klientas",
     "projektas",
@@ -552,6 +562,12 @@ def _save_metalo_storis_values(pozicija: Pozicija, post_data) -> None:
 
 
 def pozicija_create(request):
+    _require_user_perm(
+        request,
+        "pozicijos.add_pozicija",
+        "Kurti detales leidžiama tik darbuotojui arba administratoriui.",
+    )
+
     pozicija = None
 
     if request.method == "POST":
@@ -611,6 +627,12 @@ def pozicija_create(request):
 
 
 def pozicija_edit(request, pk):
+    _require_user_perm(
+        request,
+        "pozicijos.change_pozicija",
+        "Redaguoti detales leidžiama tik darbuotojui arba administratoriui.",
+    )
+
     pozicija = get_object_or_404(Pozicija, pk=pk)
 
     qs = KainosEilute.objects.filter(pozicija=pozicija).order_by(
@@ -675,6 +697,12 @@ def pozicija_edit(request, pk):
 
 @require_POST
 def brezinys_upload(request, pk):
+    _require_user_perm(
+        request,
+        "pozicijos.add_pozicijosbrezinys",
+        "Įkelti brėžinius leidžiama tik darbuotojui arba administratoriui.",
+    )
+
     poz = get_object_or_404(Pozicija, pk=pk)
 
     if request.FILES.get("failas"):
@@ -713,6 +741,12 @@ def brezinys_delete(request, pk, bid):
 @xframe_options_sameorigin
 @require_POST
 def brezinys_reorder(request, pk):
+    _require_user_perm(
+        request,
+        "pozicijos.change_pozicijosbrezinys",
+        "Keisti brėžinių tvarką leidžiama tik darbuotojui arba administratoriui.",
+    )
+
     poz = get_object_or_404(Pozicija, pk=pk)
 
     try:

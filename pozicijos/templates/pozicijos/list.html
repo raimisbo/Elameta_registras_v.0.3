@@ -322,7 +322,9 @@
 
 <div class="controls-block">
   <div class="controls-bar">
-    <a href="{% url 'pozicijos:create' %}" class="btn btn-primary">+ Nauja detalė</a>
+    {% if perms.pozicijos.add_pozicija %}
+      <a href="{% url 'pozicijos:create' %}" class="btn btn-primary">+ Nauja detalė</a>
+    {% endif %}
     <input id="q" name="q" type="search" placeholder="Globali paieška..." value="{{ q|default:'' }}">
     <button id="btn-cols" type="button">Stulpeliai</button>
     <button id="btn-clear" type="button">Išvalyti</button>

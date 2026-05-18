@@ -64,6 +64,7 @@ def main() -> int:
         settings.ALLOWED_HOSTS.append("testserver")
 
     from django.contrib.auth import get_user_model
+    from django.contrib.auth.models import Permission
     from django.core.files.uploadedfile import SimpleUploadedFile
     from django.test import Client
     from django.urls import reverse
@@ -95,16 +96,19 @@ def main() -> int:
             raise
 
         User = get_user_model()
-        user, created = User.objects.get_or_create(
-            username="upload-flow-test",
-            defaults={"is_active": True},
+        user, _ = User.objects.get_or_create(username="upload-flow-test")
+        user.is_active = True
+        user.is_staff = False
+        user.is_superuser = False
+        user.set_unusable_password()
+        user.save(update_fields=["is_active", "is_staff", "is_superuser", "password"])
+
+        upload_perm = Permission.objects.get(
+            content_type__app_label="pozicijos",
+            codename="add_pozicijosbrezinys",
         )
-        if created:
-            user.set_unusable_password()
-            user.save(update_fields=["password"])
-        elif not user.is_active:
-            user.is_active = True
-            user.save(update_fields=["is_active"])
+        user.user_permissions.set([upload_perm])
+        user.groups.clear()
 
         c = Client()
         c.force_login(user)

@@ -215,12 +215,21 @@
     </div>
 
     <div class="detail-header-actions">
-      <a href="{% url 'pozicijos:edit' pozicija.id %}" class="btn-action">Redaguoti</a>
-      <a href="{% url 'pozicijos:kainos_list' pozicija.id %}" class="btn-action btn-secondary">Kainų valdymas</a>
-      <a href="{% url 'pozicijos:pdf' pozicija.id %}?lang=lt" target="_blank" rel="noopener" class="btn-action">Pasiūlymas
-        (LT)</a>
-      <a href="{% url 'pozicijos:pdf' pozicija.id %}?lang=en" target="_blank" rel="noopener" class="btn-action">Pasiūlymas
-        (EN)</a>
+      {% if perms.pozicijos.change_pozicija %}
+        <a href="{% url 'pozicijos:edit' pozicija.id %}" class="btn-action">Redaguoti</a>
+      {% endif %}
+
+      {% if perms.pozicijos.change_kainoseilute %}
+        <a href="{% url 'pozicijos:kainos_list' pozicija.id %}" class="btn-action btn-secondary">Kainų valdymas</a>
+      {% endif %}
+
+      {% if perms.pozicijos.change_pozicija %}
+        <a href="{% url 'pozicijos:pdf' pozicija.id %}?lang=lt" target="_blank" rel="noopener" class="btn-action">Pasiūlymas
+          (LT)</a>
+        <a href="{% url 'pozicijos:pdf' pozicija.id %}?lang=en" target="_blank" rel="noopener" class="btn-action">Pasiūlymas
+          (EN)</a>
+      {% endif %}
+
       <a href="{% url 'pozicijos:list' %}" class="btn-action">Atgal į sąrašą</a>
     </div>
   </div>
@@ -275,6 +284,7 @@
     <section class="poz-card poz-card--brez">
       <h2 class="poz-card-title">Brėžiniai</h2>
 
+      {% if perms.pozicijos.add_pozicijosbrezinys %}
       <form method="post" action="{% url 'pozicijos:brezinys_upload' pozicija.id %}" enctype="multipart/form-data"
             style="margin-bottom:10px;">
         {% csrf_token %}
@@ -285,12 +295,15 @@
           <button class="btn-action" type="submit">Įkelti</button>
         </div>
       </form>
+      {% endif %}
 
       {% if breziniai %}
-        <div class="poz-brez-grid" id="breziniai-sortable" data-reorder-url="{% url 'pozicijos:brezinys_reorder' pozicija.id %}">
+        <div class="poz-brez-grid"{% if perms.pozicijos.change_pozicijosbrezinys %} id="breziniai-sortable" data-reorder-url="{% url 'pozicijos:brezinys_reorder' pozicija.id %}"{% endif %}>
           {% for brez in breziniai %}
             <div class="poz-brez-item" data-brez-id="{{ brez.id }}">
+              {% if perms.pozicijos.change_pozicijosbrezinys %}
               <button type="button" class="poz-brez-drag-handle" title="Tempti ir keisti brėžinių tvarką">☰</button>
+              {% endif %}
 
               {% if brez.is_step %}
               <a href="{% url 'pozicijos:brezinys_3d' pozicija.id brez.id %}" class="poz-brez-thumb-wrap"

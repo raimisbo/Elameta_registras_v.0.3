@@ -10,6 +10,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 from PIL import Image
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -676,11 +677,26 @@ def _register_fonts() -> tuple[str, str]:
     return "Helvetica", "Helvetica-Bold"
 
 
+def _can_generate_proposal(request) -> bool:
+    u = getattr(request, "user", None)
+    return bool(
+        getattr(u, "is_authenticated", False)
+        and u.has_perm("pozicijos.change_pozicija")
+    )
+
+
+def _require_generate_proposal(request) -> None:
+    if not _can_generate_proposal(request):
+        raise PermissionDenied("Pasiūlymo PDF generavimas leidžiamas tik darbuotojui arba administratoriui.")
+
+
 # ============================================================================
 # Views
 # ============================================================================
 
 def proposal_prepare(request, pk: int):
+    _require_generate_proposal(request)
+
     pozicija = get_object_or_404(Pozicija, pk=pk)
 
     lang = _get_lang(request)
@@ -743,6 +759,8 @@ def proposal_prepare(request, pk: int):
     )
 
 def proposal_pdf(request, pk: int):
+    _require_generate_proposal(request)
+
     pozicija = get_object_or_404(Pozicija, pk=pk)
     lang = _get_lang(request)
     labels = LANG_LABELS.get(lang, LANG_LABELS["lt"])
