@@ -23,6 +23,7 @@ urlpatterns = [
     # brėžiniai/importai
     path("<int:pk>/breziniai/upload/", views.brezinys_upload, name="brezinys_upload"),
     path("<int:pk>/breziniai/<int:bid>/delete/", views.brezinys_delete, name="brezinys_delete"),
+    path("<int:pk>/breziniai/reorder/", views.brezinys_reorder, name="brezinys_reorder"),
     path("_import_csv/", views.pozicijos_import_csv, name="import_csv"),
 
     # pasiūlymai

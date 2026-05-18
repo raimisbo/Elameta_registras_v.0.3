@@ -1,6 +1,7 @@
 # pozicijos/views.py
 from __future__ import annotations
 
+import json
 import csv
 import textwrap
 from decimal import Decimal
@@ -692,6 +693,41 @@ def brezinys_delete(request, pk, bid):
 
 
 @xframe_options_sameorigin
+@require_POST
+def brezinys_reorder(request, pk):
+    poz = get_object_or_404(Pozicija, pk=pk)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Blogas JSON."}, status=400)
+
+    raw_ids = payload.get("ids") or []
+    try:
+        ids = [int(x) for x in raw_ids]
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "Blogi brėžinių ID."}, status=400)
+
+    if not ids:
+        return JsonResponse({"ok": False, "error": "Tuščias brėžinių sąrašas."}, status=400)
+
+    existing_ids = set(
+        poz.breziniai.filter(id__in=ids).values_list("id", flat=True)
+    )
+
+    if existing_ids != set(ids):
+        return JsonResponse(
+            {"ok": False, "error": "Kai kurie brėžiniai nepriklauso šiai detalei."},
+            status=400,
+        )
+
+    for idx, bid in enumerate(ids, start=1):
+        # 10,20,30... paliekam tarpelius ateičiai.
+        poz.breziniai.filter(id=bid).update(eiliskumas=idx * 10)
+
+    return JsonResponse({"ok": True})
+
+
 def brezinys_3d(request, pk, bid):
     poz = get_object_or_404(Pozicija, pk=pk)
     br = get_object_or_404(PozicijosBrezinys, pk=bid, pozicija=poz)
