@@ -72,6 +72,58 @@ def _require_manage_kainos(request: HttpRequest) -> None:
         raise PermissionDenied("Kainų valdymas leidžiamas tik darbuotojui arba administratoriui.")
 
 
+def _normalize_kiekis_iki_ranges(pozicija: Pozicija) -> None:
+    """
+    Sutvarko aktyvių kainų kiekio intervalus.
+
+    Jei yra kelios aktyvios eilutės tam pačiam matui:
+      80..+ ir 135..+ tampa 80..134 ir 135..+
+
+    Paskutinė eilutė lieka atvira: kiekis_iki = None, UI rodoma kaip „+“.
+    """
+    matas_values = (
+        KainosEilute.objects
+        .filter(
+            pozicija=pozicija,
+            busena="aktuali",
+            yra_fiksuota=False,
+            kiekis_nuo__isnull=False,
+        )
+        .values_list("matas", flat=True)
+        .distinct()
+    )
+
+    for matas_value in matas_values:
+        rows = list(
+            KainosEilute.objects
+            .filter(
+                pozicija=pozicija,
+                busena="aktuali",
+                yra_fiksuota=False,
+                matas=matas_value,
+                kiekis_nuo__isnull=False,
+            )
+            .order_by("kiekis_nuo", "prioritetas", "pk")
+        )
+
+        for index, row in enumerate(rows):
+            next_row = rows[index + 1] if index + 1 < len(rows) else None
+
+            if next_row is None:
+                new_iki = None
+            else:
+                new_iki = next_row.kiekis_nuo - 1
+
+                # Jeigu du intervalai prasideda tuo pačiu ar nelogišku kiekiu,
+                # nedarome automatinio neigiamo / atvirkščio intervalo.
+                if row.kiekis_nuo is not None and new_iki < row.kiekis_nuo:
+                    continue
+
+            if row.kiekis_iki != new_iki:
+                row.kiekis_iki = new_iki
+                row.save(update_fields=["kiekis_iki"])
+
+
 @require_http_methods(["GET", "POST"])
 def kainos_list(request: HttpRequest, pk: int) -> HttpResponse:
     """
@@ -157,6 +209,9 @@ def kainos_list(request: HttpRequest, pk: int) -> HttpResponse:
                         # set_aktuali tvarko senas ir atnaujina pozicija.kaina_eur
                         set_aktuali(inst)
 
+                # Sutvarkom kiekio intervalus: ankstesnės eilutės „Iki“ = sekančios „Nuo“ - 1
+                _normalize_kiekis_iki_ranges(pozicija)
+
                 # Visada perskaičiuojam pozicija.kaina_eur pagal aktualią eilutę
                 _sync_pozicija_kaina_eur(pozicija)
 
@@ -199,6 +254,8 @@ def kaina_set_aktuali(request: HttpRequest, id: int) -> HttpResponse:
     _require_manage_kainos(request)
     k = get_object_or_404(KainosEilute, pk=id)
     set_aktuali(k)
+    _normalize_kiekis_iki_ranges(k.pozicija)
+    _sync_pozicija_kaina_eur(k.pozicija)
     messages.success(request, "Kaina pažymėta kaip aktuali.")
     return redirect("pozicijos:kainos_list", pk=k.pozicija_id)
 
@@ -214,8 +271,12 @@ def kaina_delete(request: HttpRequest, id: int) -> HttpResponse:
         return redirect("pozicijos:kainos_list", pk=poz_id)
 
     k.delete()
+
+    pozicija = Pozicija.objects.get(pk=poz_id)
+    _normalize_kiekis_iki_ranges(pozicija)
+
     # Po trynimo privalom perskaičiuoti pozicija.kaina_eur, kad sąrašas nerodytų pasenusios reikšmės.
-    sync_pozicija_kaina_eur(Pozicija.objects.get(pk=poz_id))
+    sync_pozicija_kaina_eur(pozicija)
     messages.success(request, "Kainos eilutė ištrinta.")
     return redirect("pozicijos:kainos_list", pk=poz_id)
 
