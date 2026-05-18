@@ -7,6 +7,7 @@ import textwrap
 from decimal import Decimal
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, IntegerField, Value, Q, Min, Max, CharField
@@ -31,6 +32,18 @@ from .services.previews import regenerate_missing_preview
 from .services.sync import sync_pozicija_kaina_eur
 
 LIST_COLUMNS = [c for c in COLUMNS if not c.get("list_hidden")]
+
+
+
+
+def _is_admin_user(request) -> bool:
+    u = getattr(request, "user", None)
+    return bool(getattr(u, "is_authenticated", False) and getattr(u, "is_superuser", False))
+
+
+def _require_admin_user(request) -> None:
+    if not _is_admin_user(request):
+        raise PermissionDenied("Šis veiksmas leidžiamas tik administratoriui.")
 
 
 FORM_SUGGEST_FIELDS = [
@@ -689,6 +702,8 @@ def brezinys_upload(request, pk):
 
 @require_POST
 def brezinys_delete(request, pk, bid):
+    _require_admin_user(request)
+
     poz = get_object_or_404(Pozicija, pk=pk)
     br = get_object_or_404(PozicijosBrezinys, pk=bid, pozicija=poz)
     br.delete()
@@ -738,6 +753,8 @@ def brezinys_3d(request, pk, bid):
 
 
 def pozicijos_import_csv(request):
+    _require_admin_user(request)
+
     result = None
     dry_run = False
 

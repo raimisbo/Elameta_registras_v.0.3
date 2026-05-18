@@ -47,10 +47,25 @@ def main() -> int:
     if "testserver" not in settings.ALLOWED_HOSTS:
         settings.ALLOWED_HOSTS.append("testserver")
 
+    from django.contrib.auth import get_user_model
     from django.test import Client
     from django.urls import reverse
 
+    User = get_user_model()
+    user, created = User.objects.get_or_create(
+        username="filter-regression-test",
+        defaults={"is_active": True},
+    )
+    if created:
+        user.set_unusable_password()
+        user.save(update_fields=["password"])
+    elif not user.is_active:
+        user.is_active = True
+        user.save(update_fields=["is_active"])
+
     c = Client()
+    c.force_login(user)
+
     results: list[CheckResult] = []
 
     list_url = reverse("pozicijos:list")

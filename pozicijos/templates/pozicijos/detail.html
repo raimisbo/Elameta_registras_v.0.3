@@ -317,10 +317,12 @@
                 <a href="{% url 'pozicijos:brezinys_3d' pozicija.id brez.id %}" class="btn-ghost-sm">3D</a>
                 {% endif %}
                 <a href="{{ brez.failas.url }}" target="_blank" rel="noopener" class="btn-ghost-sm">Atidaryti</a>
+                {% if request.user.is_superuser %}
                 <form method="post" action="{% url 'pozicijos:brezinys_delete' pozicija.id brez.id %}" onsubmit="return confirm('Ar tikrai šalinti brėžinį?');">
                   {% csrf_token %}
                   <button type="submit" class="btn-link-sm">Šalinti</button>
                 </form>
+                {% endif %}
               </div>
 
             </div>

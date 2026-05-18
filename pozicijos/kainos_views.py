@@ -50,9 +50,9 @@ def _redirect_with_filters(pozicija_id: int, busena: str, matas: str) -> HttpRes
 
 
 def _can_delete_kainos(request: HttpRequest) -> bool:
-    # Trinimas tik admin (staff). Jei nori griežčiau – pakeisk į is_superuser.
+    # Trinimas tik tikram administratoriui.
     u = getattr(request, "user", None)
-    return bool(getattr(u, "is_staff", False))
+    return bool(getattr(u, "is_authenticated", False) and getattr(u, "is_superuser", False))
 
 
 @require_http_methods(["GET", "POST"])

@@ -35,10 +35,25 @@ def main() -> int:
     if "testserver" not in settings.ALLOWED_HOSTS:
         settings.ALLOWED_HOSTS.append("testserver")
 
+    from django.contrib.auth import get_user_model
     from django.test import Client
     from django.urls import reverse
 
+    User = get_user_model()
+    user, created = User.objects.get_or_create(
+        username="ajax-contract-test",
+        defaults={"is_active": True},
+    )
+    if created:
+        user.set_unusable_password()
+        user.save(update_fields=["password"])
+    elif not user.is_active:
+        user.is_active = True
+        user.save(update_fields=["is_active"])
+
     c = Client()
+    c.force_login(user)
+
     results: list[CheckResult] = []
 
     # 1) tbody: turi grąžinti HTML (bent minimaliai su <tr arba data-pk)
@@ -46,7 +61,7 @@ def main() -> int:
         url = reverse("pozicijos:tbody")
         r = c.get(url)
         body = (r.content or b"").decode("utf-8", errors="replace")
-        if r.status_code in (200, 302):
+        if r.status_code == 200:
             ok = ("<tr" in body) or ("data-pk" in body) or ("<tbody" in body)
             results.append(CheckResult("AJAX tbody HTML contract", ok, f"{r.status_code} {url} len={len(body)}"))
         else:
@@ -58,7 +73,7 @@ def main() -> int:
     try:
         url = reverse("pozicijos:stats")
         r = c.get(url)
-        if r.status_code in (200, 302):
+        if r.status_code == 200:
             try:
                 data = r.json()
                 ok = all(k in data for k in ("labels", "values", "total"))
