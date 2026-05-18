@@ -40,6 +40,15 @@ COLUMNS: list[dict] = [
         "default": False,
     },
     {
+        "key": "brez_count",
+        "label": "Brėžiniai",
+        "type": "virtual",
+        "filter": None,
+        "searchable": False,
+        "width": 90,
+        "default": False,
+    },
+    {
         "key": "ieinantis_kodas",
         "label": "Įeinantis kodas",
         "type": "char",
@@ -345,15 +354,6 @@ COLUMNS: list[dict] = [
     },
 
     # ---------------- Virtualūs laukai ----------------
-    {
-        "key": "brez_count",
-        "label": "Brėžiniai",
-        "type": "virtual",
-        "filter": None,
-        "searchable": False,
-        "width": 90,
-        "default": False,
-    },
     {
         "key": "dok_count",
         "label": "Dokumentai",
