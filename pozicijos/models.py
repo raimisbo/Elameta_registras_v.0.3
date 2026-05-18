@@ -386,9 +386,10 @@ class PozicijosBrezinys(models.Model):
     pavadinimas = models.CharField(max_length=255, blank=True, default="")
     failas = models.FileField(upload_to="breziniai/%Y/%m/")
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    eiliskumas = models.PositiveIntegerField("Eiliškumas", default=0, db_index=True)
 
     class Meta:
-        ordering = ["-uploaded_at", "-id"]
+        ordering = ["eiliskumas", "id"]
         verbose_name = "Pozicijos brėžinys"
         verbose_name_plural = "Pozicijų brėžiniai"
 
