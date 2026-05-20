@@ -106,7 +106,7 @@ LANG_LABELS = {
         "section_drawings": "Brėžinių miniatiūros",
         "section_notes": "Pastabos",
         "no_data": "Nėra duomenų.",
-        "no_prices": "Nėra aktyvių kainų eilučių šiai pozicijai.",
+        "no_prices": "Nėra aktyvių kainų eilučių šiai detalei.",
         "no_drawings": "Nėra brėžinių.",
         "col_price": "Kaina",
         "col_unit": "Matas",

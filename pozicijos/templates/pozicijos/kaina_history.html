@@ -64,13 +64,13 @@
     <div>
       <h1 class="history-title">Kainos istorija – #{{ kaina.id }}</h1>
       <div class="history-sub">
-        Pozicija: {{ pozicija.poz_kodas|default:pozicija.id }}{% if pozicija.poz_pavad %} — {{ pozicija.poz_pavad }}{% endif %}
+        Detalė: {{ pozicija.poz_kodas|default:pozicija.id }}{% if pozicija.poz_pavad %} — {{ pozicija.poz_pavad }}{% endif %}
       </div>
     </div>
 
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
       <a class="btn" href="{% url 'pozicijos:kainos_list' pozicija.pk %}">← Atgal į kainas</a>
-      <a class="btn" href="{% url 'pozicijos:detail' pozicija.pk %}">← Atgal į poziciją</a>
+      <a class="btn" href="{% url 'pozicijos:detail' pozicija.pk %}">← Atgal į detalę</a>
     </div>
   </div>
 

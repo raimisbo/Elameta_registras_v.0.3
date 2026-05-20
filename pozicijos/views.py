@@ -605,7 +605,7 @@ def pozicija_create(request):
                 _sync_maskavimo_tipas_from_lines(pozicija)
                 _sync_kaina_eur_from_lines(pozicija)
 
-            messages.success(request, "Pozicija sukurta.")
+            messages.success(request, "Detalė sukurta.")
             return redirect("pozicijos:detail", pk=pozicija.pk)
         else:
             messages.error(request, "Patikrinkite formos klaidas.")
@@ -674,7 +674,7 @@ def pozicija_edit(request, pk):
                 _sync_maskavimo_tipas_from_lines(pozicija)
                 _sync_kaina_eur_from_lines(pozicija)
 
-            messages.success(request, "Pozicija atnaujinta.")
+            messages.success(request, "Detalė atnaujinta.")
             return redirect("pozicijos:detail", pk=pozicija.pk)
         else:
             messages.error(request, "Patikrinkite formos klaidas.")
