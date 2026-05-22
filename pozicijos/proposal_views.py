@@ -808,6 +808,13 @@ def proposal_pdf(request, pk: int):
         splitLongWords=1,
     )
     price_cell_style = ParagraphStyle(name="price_cell", fontName=font_regular, fontSize=8, leading=10)
+    header_meta_style = ParagraphStyle(
+        name="header_meta",
+        fontName=font_bold,
+        fontSize=10.5,
+        leading=13,
+        splitLongWords=1,
+    )
 
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
@@ -907,21 +914,28 @@ def proposal_pdf(request, pk: int):
     c.drawString(margin_left, offer_title_y, labels["offer_title"])
 
     # Po pavadinimu: greiti identifikatoriai.
-    # Paliekam aiškesnį tarpą nuo „Komercinis pasiūlymas“.
+    # Projekto tekstas turi ribotą kairės kepurės plotį, kad ilgas tekstas
+    # lūžtų žemyn ir nelįstų po dešinėje esančiu brėžiniu.
     header_project = str(getattr(pozicija, "projektas", "") or "").strip()
     header_part_code = str(getattr(pozicija, "poz_kodas", "") or "").strip()
 
     header_left_y = offer_title_y - 10 * mm
+    header_text_w = 72 * mm
+    field_labels = FIELD_LABELS.get(lang, FIELD_LABELS["lt"])
+
     if header_project:
-        c.setFont(font_bold, 10.5)
         c.setFillColor(colors.HexColor("#111827"))
-        c.drawString(margin_left, header_left_y, f"Projektas: {header_project}")
-        header_left_y -= 6 * mm
+        project_label = field_labels.get("projektas", "Projektas")
+        project_para = _make_paragraph(f"{project_label}: {header_project}", header_meta_style)
+        _, project_h = project_para.wrap(header_text_w, 50 * mm)
+        project_para.drawOn(c, margin_left, header_left_y - project_h)
+        header_left_y -= project_h + 3 * mm
 
     if header_part_code:
         c.setFont(font_bold, 10.5)
         c.setFillColor(colors.HexColor("#111827"))
-        c.drawString(margin_left, header_left_y, f"Detalės kodas: {header_part_code}")
+        part_code_label = field_labels.get("poz_kodas", "Detalės kodas")
+        c.drawString(margin_left, header_left_y, f"{part_code_label}: {header_part_code}")
 
     # Dešinė viršuje: pasiūlymo generavimo data
     c.setFont(font_regular, 9)
