@@ -71,6 +71,35 @@ FORM_SUGGEST_FIELDS = [
 ]
 
 
+
+def _copy_initial_from_pozicija(pozicija: Pozicija) -> dict:
+    """
+    Paruošia initial duomenis naujai detalei pagal esamą detalę.
+
+    Sąmoningai kopijuojame tik PozicijaForm laukus.
+    Nekopijuojame:
+    - kainų eilučių;
+    - brėžinių;
+    - susijusių objektų;
+    - sisteminių laukų.
+    """
+    initial = {}
+
+    for name in PozicijaForm.Meta.fields:
+        value = getattr(pozicija, name, None)
+
+        if value is None:
+            continue
+
+        if hasattr(value, "isoformat"):
+            value = value.isoformat()
+        elif not isinstance(value, (str, int, float, bool)):
+            value = str(value)
+
+        initial[name] = value
+
+    return initial
+
 def _get_form_suggestions() -> dict[str, list[str]]:
     suggestions: dict[str, list[str]] = {}
     qs = Pozicija.objects.all().prefetch_related("metalo_storio_eilutes")
@@ -561,6 +590,27 @@ def _save_metalo_storis_values(pozicija: Pozicija, post_data) -> None:
         pozicija.save(update_fields=["metalo_storis", "updated"])
 
 
+
+def pozicija_copy(request, pk: int):
+    _require_user_perm(
+        request,
+        "pozicijos.add_pozicija",
+        "Kopijuoti detalę leidžiama tik darbuotojui arba administratoriui.",
+    )
+
+    original = get_object_or_404(Pozicija, pk=pk)
+
+    request.session["pozicija_copy_initial"] = _copy_initial_from_pozicija(original)
+
+    messages.warning(
+        request,
+        "Kuriama nauja detalė pagal pasirinktą įrašą. "
+        "Kainos ir brėžiniai nekopijuojami. "
+        "Prieš išsaugodami pakeiskite detalės kodą, pavadinimą ar kitus skirtumus, jei reikia.",
+    )
+
+    return redirect("pozicijos:create")
+
 def pozicija_create(request):
     _require_user_perm(
         request,
@@ -610,7 +660,8 @@ def pozicija_create(request):
         else:
             messages.error(request, "Patikrinkite formos klaidas.")
     else:
-        form = PozicijaForm()
+        copy_initial = request.session.pop("pozicija_copy_initial", None)
+        form = PozicijaForm(initial=copy_initial) if copy_initial else PozicijaForm()
         formset = KainaFormSet(prefix="kainos", queryset=KainosEilute.objects.none())
         mask_ktl_formset = MaskavimoFormSet(prefix="maskavimas_ktl", queryset=MaskavimoEilute.objects.none())
         mask_miltai_formset = MaskavimoFormSet(prefix="maskavimas_miltai", queryset=MaskavimoEilute.objects.none())

@@ -24,6 +24,7 @@ urlpatterns = [
     # kurti / redaguoti
     path("nauja/", auth(views.pozicija_create), name="create"),
     path("<int:pk>/redaguoti/", auth(views.pozicija_edit), name="edit"),
+    path("<int:pk>/kopijuoti/", auth(views.pozicija_copy), name="copy"),
 
     # detalė
     path("<int:pk>/", auth(views.pozicija_detail), name="detail"),
