@@ -485,6 +485,8 @@
   const btnExportCsv = $("#btn-export-csv");
   const pagination = $("#pagination");
   const activeProjectSummary = $("#active-project-summary");
+  const projectProposalUrl = "{% url 'pozicijos:project_pdf' %}";
+  const canProjectProposal = {% if perms.pozicijos.change_pozicija %}true{% else %}false{% endif %};
 
   function ensureDrawingPopover(){
     let pop = document.getElementById("drawing-hover-popover");
@@ -979,6 +981,17 @@
 
     activeProjectSummary.hidden = false;
     activeProjectSummary.textContent = `Aktyvus projektas: ${project} · Detalių: ${total || 0}`;
+
+    if (canProjectProposal) {
+      const link = document.createElement("a");
+      link.href = `${projectProposalUrl}?projektas=${encodeURIComponent(project)}`;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = "Projektinis pasiūlymas PDF";
+      link.style.marginLeft = "12px";
+      link.style.fontWeight = "700";
+      activeProjectSummary.appendChild(link);
+    }
   }
 
   function fetchStatsAndRender(){
