@@ -1523,13 +1523,6 @@ def project_proposal_pdf(request):
     # ---------------------------------------------------------------------
     draw_section_title(details_title)
 
-    skip_labels = {
-        field_labels.get("klientas"),
-        field_labels.get("projektas"),
-        field_labels.get("poz_kodas"),
-        field_labels.get("poz_pavad"),
-    }
-
     for idx, pozicija in enumerate(pozicijos, start=1):
         if y < bottom_margin + 48 * mm:
             new_page()
@@ -1551,11 +1544,7 @@ def project_proposal_pdf(request):
         draw_project_thumbnail(pozicija, margin_left, y - thumb_h, thumb_w, thumb_h)
         y -= thumb_h + 3
 
-        field_rows = [
-            (lbl, val)
-            for lbl, val in _build_field_rows(pozicija, lang)
-            if lbl not in skip_labels
-        ]
+        field_rows = _build_field_rows(pozicija, lang)
 
         if field_rows:
             table_data = [
@@ -1586,12 +1575,85 @@ def project_proposal_pdf(request):
                     ]
                 )
             )
-            draw_table_split(detail_table, details_title, gap_after=7)
+            draw_table_split(detail_table, details_title, gap_after=5)
         else:
             c.setFont(font_regular, 8)
             c.setFillColor(colors.HexColor("#6b7280"))
             c.drawString(margin_left, y, labels["no_data"])
             y -= 10
+
+        # Kainos prie kiekvienos detalės.
+        # Projektiniame PDF rodome kaip solo pasiūlyme: aktualias kainų eilutes.
+        kainos = list(
+            pozicija.kainos_eilutes
+            .filter(busena="aktuali")
+            .order_by("kiekis_nuo", "kiekis_iki", "-prioritetas", "-created")
+        )
+
+        if y < bottom_margin + 28 * mm:
+            new_page()
+            draw_section_title(details_title)
+
+        price_title = labels.get("section_prices", "Kainos")
+        price_title_para = _make_paragraph(price_title, detail_title_style)
+        _, price_title_h = price_title_para.wrap(W - margin_left - margin_right, 15 * mm)
+        price_title_para.drawOn(c, margin_left, y - price_title_h)
+        # Paliekame aiškų tarpą po kainų antrašte, kad tekstas / lentelė neužliptų.
+        y -= price_title_h + 5 * mm
+
+        if kainos:
+            price_rows = [[
+                _make_paragraph(labels["col_price"], table_header_style),
+                _make_paragraph(labels["col_unit"], table_header_style),
+                _make_paragraph(labels["col_qty_from"], table_header_style),
+                _make_paragraph(labels["col_qty_to"], table_header_style),
+                _make_paragraph(labels["col_valid_from"], table_header_style),
+                _make_paragraph(labels["col_valid_to"], table_header_style),
+                _make_paragraph(labels["col_note"], table_header_style),
+            ]]
+
+            for k in kainos:
+                price_note = (k.pastaba or "").strip()
+                price_rows.append([
+                    _make_paragraph(_fmt_price(k.kaina), table_cell_style),
+                    _make_paragraph(str(k.matas or ""), table_cell_style),
+                    _make_paragraph("—" if k.kiekis_nuo is None else str(k.kiekis_nuo), table_cell_style),
+                    _make_paragraph(
+                        ("+" if k.kiekis_nuo is not None else "—") if k.kiekis_iki is None else str(k.kiekis_iki),
+                        table_cell_style,
+                    ),
+                    _make_paragraph(k.galioja_nuo.strftime("%Y-%m-%d") if k.galioja_nuo else "—", table_cell_style),
+                    _make_paragraph(k.galioja_iki.strftime("%Y-%m-%d") if k.galioja_iki else "—", table_cell_style),
+                    _make_paragraph(price_note, table_cell_style) if price_note else "",
+                ])
+
+            price_table = Table(
+                price_rows,
+                colWidths=[24 * mm, 15 * mm, 17 * mm, 17 * mm, 23 * mm, 23 * mm, (W - margin_left - margin_right) - 119 * mm],
+                repeatRows=1,
+            )
+            price_table.setStyle(
+                TableStyle(
+                    [
+                        ("FONT", (0, 0), (-1, -1), font_regular, 7.1),
+                        ("FONT", (0, 0), (-1, 0), font_bold, 7.3),
+                        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e7eb")),
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f9fafb")),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                        ("TOPPADDING", (0, 0), (-1, -1), 2),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                    ]
+                )
+            )
+            draw_table_split(price_table, details_title, gap_after=9)
+        else:
+            c.setFont(font_regular, 8)
+            c.setFillColor(colors.HexColor("#6b7280"))
+            c.drawString(margin_left, y, labels["no_prices"])
+            y -= 12
+
 
     for pth in temp_files_to_cleanup:
         try:
