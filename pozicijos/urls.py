@@ -18,6 +18,9 @@ urlpatterns = [
     path("stats/", auth(views.pozicijos_stats), name="stats"),
     path("export/csv/", auth(views.pozicijos_export_csv), name="export_csv"),
 
+    # projektinis pasiūlymas
+    path("project/pdf/", auth(proposal_views.project_proposal_pdf), name="project_pdf"),
+
     # kurti / redaguoti
     path("nauja/", auth(views.pozicija_create), name="create"),
     path("<int:pk>/redaguoti/", auth(views.pozicija_edit), name="edit"),

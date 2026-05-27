@@ -566,6 +566,49 @@ def _prepare_image_for_pdf(img_path: str | None) -> tuple[str | None, str | None
     except Exception:
         return None, None
 
+
+def _prepare_project_thumb_for_pdf(img_path: str | None, max_px: int = 420, quality: int = 65) -> tuple[str | None, str | None]:
+    """
+    Projektiniam pasiūlymui skirtas tikras miniatiūros suspaudimas.
+
+    Skirtumas nuo _prepare_image_for_pdf:
+    - originalaus JPG/PNG nededame tiesiogiai į PDF;
+    - visada sumažiname pikselius;
+    - visada išsaugome kaip JPEG;
+    - miniatiūra yra tik pažintinė, ne techninis brėžinys.
+    """
+    if not img_path or not os.path.exists(img_path):
+        return None, None
+
+    try:
+        with Image.open(img_path) as im:
+            im.load()
+            im.thumbnail((max_px, max_px), Image.LANCZOS)
+
+            if im.mode in ("RGBA", "LA") or "transparency" in im.info:
+                rgba = im.convert("RGBA")
+                bg = Image.new("RGB", rgba.size, "white")
+                bg.paste(rgba, mask=rgba.split()[-1])
+                converted = bg
+            else:
+                converted = im.convert("RGB")
+
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+            tmp_path = tmp.name
+            tmp.close()
+
+            converted.save(
+                tmp_path,
+                format="JPEG",
+                quality=quality,
+                optimize=True,
+                progressive=True,
+            )
+            return tmp_path, tmp_path
+
+    except Exception:
+        return None, None
+
 def _drawing_kind(b) -> str:
     """Grąžina trumpą tipą placeholderiui: PDF / 3D / FILE."""
     try:
@@ -1145,3 +1188,427 @@ def proposal_pdf(request, pk: int):
     resp["Content-Disposition"] = f'inline; filename="offer_{pozicija.poz_kodas or pozicija.pk}.pdf"'
     resp.write(buf.getvalue())
     return resp
+
+
+def project_proposal_pdf(request):
+    """
+    Projektinis PDF pasiūlymas pagal projektą.
+
+    Vienos detalės PDF neliečiamas.
+    Šitas režimas skirtas kelioms detalėms viename pasiūlyme:
+    - bendra projekto suvestinė;
+    - kiekvienos detalės pažintinė, stipriai suspausta miniatiūra;
+    - tik užpildyti laukai per esamą _build_field_rows().
+    """
+    _require_generate_proposal(request)
+
+    lang = _get_lang(request)
+    labels = LANG_LABELS.get(lang, LANG_LABELS["lt"])
+    field_labels = FIELD_LABELS.get(lang, FIELD_LABELS["lt"])
+
+    project = (
+        request.GET.get("projektas")
+        or request.GET.get("project")
+        or request.GET.get("f[projektas]")
+        or ""
+    ).strip()
+
+    if not project:
+        return HttpResponse(
+            "Trūksta projekto filtro.",
+            status=400,
+            content_type="text/plain; charset=utf-8",
+        )
+
+    pozicijos = list(
+        Pozicija.objects
+        .filter(projektas=project)
+        .order_by("poz_kodas", "poz_pavad", "id")
+    )
+
+    if not pozicijos:
+        return HttpResponse(
+            "Pagal nurodytą projektą detalių nerasta.",
+            status=404,
+            content_type="text/plain; charset=utf-8",
+        )
+
+    font_regular, font_bold = _register_fonts()
+
+    title_style = ParagraphStyle(
+        name="project_title",
+        fontName=font_bold,
+        fontSize=18,
+        leading=22,
+        splitLongWords=1,
+    )
+    meta_style = ParagraphStyle(
+        name="project_meta",
+        fontName=font_regular,
+        fontSize=9.5,
+        leading=12,
+        splitLongWords=1,
+    )
+    section_style = ParagraphStyle(
+        name="project_section",
+        fontName=font_bold,
+        fontSize=12,
+        leading=15,
+        splitLongWords=1,
+    )
+    table_header_style = ParagraphStyle(
+        name="project_table_header",
+        fontName=font_bold,
+        fontSize=7.5,
+        leading=9,
+        splitLongWords=1,
+    )
+    table_cell_style = ParagraphStyle(
+        name="project_table_cell",
+        fontName=font_regular,
+        fontSize=7.2,
+        leading=8.7,
+        splitLongWords=1,
+    )
+    detail_title_style = ParagraphStyle(
+        name="project_detail_title",
+        fontName=font_bold,
+        fontSize=10.5,
+        leading=13,
+        splitLongWords=1,
+    )
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    W, H = A4
+
+    margin_left = 14 * mm
+    margin_right = 14 * mm
+    bottom_margin = 14 * mm
+    y = H - 17 * mm
+    temp_files_to_cleanup: list[str] = []
+
+    summary_title = "Projekto detalių suvestinė" if lang == "lt" else "Project parts summary"
+    details_title = "Detalių informacija" if lang == "lt" else "Parts information"
+    project_label = field_labels.get("projektas", "Projektas")
+    customer_label = field_labels.get("klientas", "Klientas")
+    part_code_label = field_labels.get("poz_kodas", "Detalės kodas")
+    part_name_label = field_labels.get("poz_pavad", "Detalės pavadinimas")
+    prices_label = labels.get("section_prices", "Kainos")
+
+    def new_page():
+        nonlocal y
+        c.showPage()
+        y = H - 17 * mm
+
+    def draw_section_title(title: str):
+        nonlocal y
+        if y < bottom_margin + 14 * mm:
+            new_page()
+        c.setFillColor(colors.HexColor("#111827"))
+        para = _make_paragraph(title, section_style)
+        avail_w = W - margin_left - margin_right
+        _, h = para.wrap(avail_w, 20 * mm)
+        para.drawOn(c, margin_left, y - h)
+        y -= h + 3
+        c.setStrokeColor(colors.HexColor("#e5e7eb"))
+        c.line(margin_left, y, W - margin_right, y)
+        y -= 5
+
+    def draw_table_split(table_obj: Table, section_title: str, gap_after: float = 8):
+        nonlocal y
+        avail_w = W - margin_left - margin_right
+
+        while True:
+            avail_h = y - bottom_margin
+            if avail_h < 20 * mm:
+                new_page()
+                draw_section_title(section_title)
+                avail_h = y - bottom_margin
+
+            parts = table_obj.split(avail_w, avail_h)
+            if not parts:
+                new_page()
+                draw_section_title(section_title)
+                continue
+
+            part = parts[0]
+            pw, ph = part.wrap(avail_w, avail_h)
+            part.drawOn(c, margin_left, y - ph)
+            y -= ph
+
+            if len(parts) == 1:
+                y -= gap_after
+                break
+
+            table_obj = parts[1]
+            new_page()
+            draw_section_title(section_title)
+
+    def active_price_lines(pozicija: Pozicija) -> str:
+        kainos = list(
+            pozicija.kainos_eilutes
+            .filter(busena="aktuali")
+            .order_by("kiekis_nuo", "kiekis_iki", "-prioritetas", "-created")
+        )
+
+        if not kainos:
+            return "—"
+
+        out = []
+        for k in kainos:
+            if k.kiekis_nuo is None and k.kiekis_iki is None:
+                qty = "—"
+            elif k.kiekis_nuo is not None and k.kiekis_iki is None:
+                qty = f"{k.kiekis_nuo}+"
+            elif k.kiekis_nuo is None:
+                qty = f"iki {k.kiekis_iki}"
+            else:
+                qty = f"{k.kiekis_nuo}–{k.kiekis_iki}"
+
+            line = f"{qty}: {_fmt_price(k.kaina)} {k.matas or ''}".strip()
+            note = (k.pastaba or "").strip()
+            if note:
+                line = f"{line} — {note}"
+            out.append(line)
+
+        return "\n".join(out)
+
+    def first_drawing_for(pozicija: Pozicija):
+        try:
+            return pozicija.breziniai.all().order_by("eiliskumas", "id").first()
+        except Exception:
+            return None
+
+    def draw_project_thumbnail(pozicija: Pozicija, box_x: float, box_y: float, box_w: float, box_h: float):
+        b = first_drawing_for(pozicija)
+        src = _resolve_preview_path(b) if b else None
+        draw_path = None
+        temp_path = None
+
+        if src:
+            draw_path, temp_path = _prepare_project_thumb_for_pdf(src)
+            if temp_path:
+                temp_files_to_cleanup.append(temp_path)
+
+        c.setStrokeColor(colors.HexColor("#e5e7eb"))
+        c.setLineWidth(0.5)
+        c.rect(box_x, box_y, box_w, box_h, stroke=1, fill=0)
+
+        drawn = False
+        if draw_path:
+            try:
+                c.drawImage(
+                    ImageReader(draw_path),
+                    box_x + 1.5,
+                    box_y + 1.5,
+                    width=box_w - 3,
+                    height=box_h - 3,
+                    preserveAspectRatio=True,
+                    anchor="c",
+                    mask="auto",
+                )
+                drawn = True
+            except Exception:
+                drawn = False
+
+        if not drawn:
+            kind = _drawing_kind(b) if b else "—"
+            c.setFont(font_bold, 9)
+            c.setFillColor(colors.HexColor("#9ca3af"))
+            c.drawCentredString(box_x + box_w / 2, box_y + box_h / 2, kind)
+
+    # ---------------------------------------------------------------------
+    # Header
+    # ---------------------------------------------------------------------
+    logo_candidates = [
+        getattr(settings, "OFFER_LOGO_PATH", None),
+        os.path.join(settings.MEDIA_ROOT, "logo.png") if getattr(settings, "MEDIA_ROOT", None) else None,
+        os.path.join(settings.BASE_DIR, "media", "logo.png"),
+        os.path.join(settings.BASE_DIR, "static", "img", "logo.png"),
+        os.path.join(settings.BASE_DIR, "pozicijos", "static", "pozicijos", "img", "logo.png"),
+    ]
+    logo_path = next((p for p in logo_candidates if p and os.path.exists(str(p))), None)
+
+    if logo_path:
+        try:
+            c.drawImage(
+                logo_path,
+                margin_left,
+                H - 27 * mm,
+                width=42 * mm,
+                height=14 * mm,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
+        except Exception:
+            pass
+
+    title_y = H - 42 * mm if logo_path else H - 22 * mm
+    offer_para = _make_paragraph(labels["offer_title"], title_style)
+    _, offer_h = offer_para.wrap(W - margin_left - margin_right - 50 * mm, 25 * mm)
+    offer_para.drawOn(c, margin_left, title_y - offer_h)
+
+    c.setFont(font_regular, 9)
+    c.setFillColor(colors.HexColor("#6b7280"))
+    c.drawRightString(
+        W - margin_right,
+        H - 18 * mm,
+        f'{labels["date_label"]}: {datetime.now().strftime("%Y-%m-%d")}',
+    )
+
+    customers = sorted({str(getattr(p, "klientas", "") or "").strip() for p in pozicijos if str(getattr(p, "klientas", "") or "").strip()})
+    if len(customers) == 1:
+        customer_value = customers[0]
+    elif len(customers) > 1:
+        customer_value = "Skirtingi klientai" if lang == "lt" else "Multiple customers"
+    else:
+        customer_value = "—"
+
+    y = title_y - offer_h - 5 * mm
+    meta_lines = [
+        f"{project_label}: {project}",
+        f"{customer_label}: {customer_value}",
+        f"{'Detalių' if lang == 'lt' else 'Parts'}: {len(pozicijos)}",
+    ]
+    meta_para = _make_paragraph("\n".join(meta_lines), meta_style)
+    _, meta_h = meta_para.wrap(W - margin_left - margin_right, 35 * mm)
+    meta_para.drawOn(c, margin_left, y - meta_h)
+    y -= meta_h + 9 * mm
+
+    # ---------------------------------------------------------------------
+    # Summary table
+    # ---------------------------------------------------------------------
+    draw_section_title(summary_title)
+
+    rows = [[
+        _make_paragraph("Nr.", table_header_style),
+        _make_paragraph(part_code_label, table_header_style),
+        _make_paragraph(part_name_label, table_header_style),
+        _make_paragraph(prices_label, table_header_style),
+    ]]
+
+    for idx, pozicija in enumerate(pozicijos, start=1):
+        rows.append([
+            _make_paragraph(str(idx), table_cell_style),
+            _make_paragraph(str(getattr(pozicija, "poz_kodas", "") or "—"), table_cell_style),
+            _make_paragraph(str(getattr(pozicija, "poz_pavad", "") or "—"), table_cell_style),
+            _make_paragraph(active_price_lines(pozicija), table_cell_style),
+        ])
+
+    summary_table = Table(
+        rows,
+        colWidths=[10 * mm, 38 * mm, 50 * mm, (W - margin_left - margin_right) - 98 * mm],
+        repeatRows=1,
+    )
+    summary_table.setStyle(
+        TableStyle(
+            [
+                ("FONT", (0, 0), (-1, -1), font_regular, 7.2),
+                ("FONT", (0, 0), (-1, 0), font_bold, 7.5),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e7eb")),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f9fafb")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]
+        )
+    )
+    draw_table_split(summary_table, summary_title, gap_after=10)
+
+    # ---------------------------------------------------------------------
+    # Detail blocks
+    # ---------------------------------------------------------------------
+    draw_section_title(details_title)
+
+    skip_labels = {
+        field_labels.get("klientas"),
+        field_labels.get("projektas"),
+        field_labels.get("poz_kodas"),
+        field_labels.get("poz_pavad"),
+    }
+
+    for idx, pozicija in enumerate(pozicijos, start=1):
+        if y < bottom_margin + 48 * mm:
+            new_page()
+            draw_section_title(details_title)
+
+        code = str(getattr(pozicija, "poz_kodas", "") or "").strip()
+        name = str(getattr(pozicija, "poz_pavad", "") or "").strip()
+        detail_title = f"{idx}. {code or '—'}"
+        if name:
+            detail_title += f" — {name}"
+
+        title_para = _make_paragraph(detail_title, detail_title_style)
+        _, title_h = title_para.wrap(W - margin_left - margin_right, 20 * mm)
+        title_para.drawOn(c, margin_left, y - title_h)
+        y -= title_h + 3
+
+        thumb_w = 36 * mm
+        thumb_h = 25 * mm
+        draw_project_thumbnail(pozicija, margin_left, y - thumb_h, thumb_w, thumb_h)
+        y -= thumb_h + 3
+
+        field_rows = [
+            (lbl, val)
+            for lbl, val in _build_field_rows(pozicija, lang)
+            if lbl not in skip_labels
+        ]
+
+        if field_rows:
+            table_data = [
+                [
+                    _make_paragraph(str(lbl), table_header_style),
+                    _make_paragraph(str(val or ""), table_cell_style),
+                ]
+                for lbl, val in field_rows
+            ]
+
+            detail_table = Table(
+                table_data,
+                colWidths=[56 * mm, (W - margin_left - margin_right) - 56 * mm],
+                repeatRows=0,
+            )
+            detail_table.setStyle(
+                TableStyle(
+                    [
+                        ("FONT", (0, 0), (-1, -1), font_regular, 7.2),
+                        ("FONT", (0, 0), (0, -1), font_bold, 7.3),
+                        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e7eb")),
+                        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f9fafb")),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                        ("TOPPADDING", (0, 0), (-1, -1), 2),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                    ]
+                )
+            )
+            draw_table_split(detail_table, details_title, gap_after=7)
+        else:
+            c.setFont(font_regular, 8)
+            c.setFillColor(colors.HexColor("#6b7280"))
+            c.drawString(margin_left, y, labels["no_data"])
+            y -= 10
+
+    for pth in temp_files_to_cleanup:
+        try:
+            os.unlink(pth)
+        except Exception:
+            pass
+
+    c.showPage()
+    c.save()
+
+    safe_project = "".join(
+        ch if (ch.isascii() and (ch.isalnum() or ch in "-_")) else "_"
+        for ch in project
+    ).strip("_")[:80] or "project"
+
+    resp = HttpResponse(content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="project_offer_{safe_project}.pdf"'
+    resp.write(buf.getvalue())
+    return resp
+
