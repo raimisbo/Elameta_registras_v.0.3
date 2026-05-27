@@ -219,6 +219,10 @@
         <a href="{% url 'pozicijos:edit' pozicija.id %}" class="btn-action">Redaguoti</a>
       {% endif %}
 
+      {% if perms.pozicijos.add_pozicija %}
+        <a href="{% url 'pozicijos:copy' pozicija.id %}" class="btn-action btn-secondary">Kopijuoti kaip naują</a>
+      {% endif %}
+
       {% if perms.pozicijos.change_kainoseilute %}
         <a href="{% url 'pozicijos:kainos_list' pozicija.id %}" class="btn-action btn-secondary">Kainų valdymas</a>
       {% endif %}
