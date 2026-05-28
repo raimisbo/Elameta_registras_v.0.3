@@ -83,6 +83,25 @@ def _validate_thickness_expr(raw: str) -> tuple[str, Decimal | None]:
     raise forms.ValidationError("Netinkamas formatas. Pvz.: 12.5, 12-13, 3<>6, 33 +/- 5, >=12")
 
 
+
+PAGRINDINIAI_DUPLICATE_FIELDS = [
+    "klientas",
+    "projektas",
+    "poz_kodas",
+    "poz_pavad",
+    "brezinio_nr",
+    "ieinantis_kodas",
+    "iseinantis_kodas",
+]
+
+
+PAGRINDINIAI_REQUIRED_FIELDS = [
+    "klientas",
+    "projektas",
+]
+
+
+
 class PozicijaForm(forms.ModelForm):
     # Override: leidžiam tekstinį storio formatą
     ktl_dangos_storis_um = forms.CharField(
@@ -251,6 +270,40 @@ class PozicijaForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+
+        pagrindiniai_values = {}
+
+        for field_name in PAGRINDINIAI_DUPLICATE_FIELDS:
+            value = cleaned.get(field_name)
+            value = "" if value is None else str(value).strip()
+            pagrindiniai_values[field_name] = value
+
+        missing_required = False
+        for field_name in PAGRINDINIAI_REQUIRED_FIELDS:
+            if not pagrindiniai_values.get(field_name):
+                self.add_error(field_name, "Šis laukas privalomas.")
+                missing_required = True
+
+        # Dublikatų tikrinimą darome tik tada, kai užpildyti privalomi laukai.
+        # Kitaip kopijos kūrimo scenarijuje vartotojui pirmiausia rodome aiškią
+        # Klientas / Projektas klaidą, o ne klaidinantį dublikato pranešimą.
+        if not missing_required:
+            duplicate_qs = Pozicija.objects.all()
+            for field_name, value in pagrindiniai_values.items():
+                duplicate_qs = duplicate_qs.filter(**{f"{field_name}__iexact": value})
+
+            if self.instance and self.instance.pk:
+                duplicate_qs = duplicate_qs.exclude(pk=self.instance.pk)
+
+            duplicate = duplicate_qs.order_by("id").first()
+            if duplicate:
+                self.add_error(
+                    "poz_kodas",
+                    (
+                        "Detalė su tokiomis pačiomis Pagrindiniai bloko reikšmėmis jau yra "
+                        f"(ID {duplicate.pk}). Pakeiskite bent vieną Pagrindiniai bloko lauką."
+                    ),
+                )
 
         metalo_storis_raw = (self.data.get("metalo_storis") or "").strip()
         if metalo_storis_raw:

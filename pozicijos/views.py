@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.core.files.base import File
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, IntegerField, Value, Q, Min, Max, CharField
@@ -85,7 +86,12 @@ def _copy_initial_from_pozicija(pozicija: Pozicija) -> dict:
     """
     initial = {}
 
+    skip_on_copy = {"klientas", "projektas"}
+
     for name in PozicijaForm.Meta.fields:
+        if name in skip_on_copy:
+            continue
+
         value = getattr(pozicija, name, None)
 
         if value is None:
@@ -99,6 +105,37 @@ def _copy_initial_from_pozicija(pozicija: Pozicija) -> dict:
         initial[name] = value
 
     return initial
+
+
+def _copy_breziniai_to_pozicija(source: Pozicija, target: Pozicija) -> int:
+    """
+    Fiziškai nukopijuoja brėžinių / paveiksliukų failus į naują detalę.
+
+    Sąmoningai nekopijuojame kainų.
+    Brėžiniai nekabinami prie to paties failo – sukuriami nauji failai per FileField.save().
+    """
+    copied = 0
+
+    for source_brez in source.breziniai.all().order_by("eiliskumas", "id"):
+        if not source_brez.failas:
+            continue
+
+        filename = source_brez.filename or "brezinys"
+
+        try:
+            with source_brez.failas.storage.open(source_brez.failas.name, "rb") as fh:
+                new_brez = PozicijosBrezinys(
+                    pozicija=target,
+                    pavadinimas=source_brez.pavadinimas,
+                    eiliskumas=source_brez.eiliskumas,
+                )
+                new_brez.failas.save(filename, File(fh), save=True)
+                copied += 1
+        except Exception:
+            # Vieno blogo failo klaida neturi sugadinti visos kopijos.
+            continue
+
+    return copied
 
 def _get_form_suggestions() -> dict[str, list[str]]:
     suggestions: dict[str, list[str]] = {}
@@ -601,11 +638,12 @@ def pozicija_copy(request, pk: int):
     original = get_object_or_404(Pozicija, pk=pk)
 
     request.session["pozicija_copy_initial"] = _copy_initial_from_pozicija(original)
+    request.session["pozicija_copy_source_id"] = original.pk
 
     messages.warning(
         request,
         "Kuriama nauja detalė pagal pasirinktą įrašą. "
-        "Kainos ir brėžiniai nekopijuojami. "
+        "Kainos nekopijuojamos. Brėžiniai / paveiksliukai kopijuojami. "
         "Prieš išsaugodami pakeiskite detalės kodą, pavadinimą ar kitus skirtumus, jei reikia.",
     )
 
@@ -619,8 +657,10 @@ def pozicija_create(request):
     )
 
     pozicija = None
+    copy_source_id = ""
 
     if request.method == "POST":
+        copy_source_id = (request.POST.get("copy_source_id") or "").strip()
         form = PozicijaForm(request.POST, request.FILES)
         formset = KainaFormSet(request.POST, prefix="kainos", queryset=KainosEilute.objects.none())
 
@@ -639,6 +679,12 @@ def pozicija_create(request):
             with transaction.atomic():
                 pozicija = form.save()
 
+                copied_breziniai_count = 0
+                if copy_source_id.isdigit():
+                    source_pozicija = Pozicija.objects.filter(pk=int(copy_source_id)).first()
+                    if source_pozicija and source_pozicija.pk != pozicija.pk:
+                        copied_breziniai_count = _copy_breziniai_to_pozicija(source_pozicija, pozicija)
+
                 formset.instance = pozicija
                 instances = formset.save(commit=False)
                 for inst in instances:
@@ -656,11 +702,14 @@ def pozicija_create(request):
                 _sync_kaina_eur_from_lines(pozicija)
 
             messages.success(request, "Detalė sukurta.")
+            if locals().get("copied_breziniai_count"):
+                messages.info(request, f"Nukopijuota brėžinių / paveiksliukų: {copied_breziniai_count}.")
             return redirect("pozicijos:detail", pk=pozicija.pk)
         else:
             messages.error(request, "Patikrinkite formos klaidas.")
     else:
         copy_initial = request.session.pop("pozicija_copy_initial", None)
+        copy_source_id = str(request.session.pop("pozicija_copy_source_id", "") or "")
         form = PozicijaForm(initial=copy_initial) if copy_initial else PozicijaForm()
         formset = KainaFormSet(prefix="kainos", queryset=KainosEilute.objects.none())
         mask_ktl_formset = MaskavimoFormSet(prefix="maskavimas_ktl", queryset=MaskavimoEilute.objects.none())
@@ -673,6 +722,7 @@ def pozicija_create(request):
         "kainos_formset": formset,
         "maskavimo_ktl_formset": mask_ktl_formset,
         "maskavimo_miltai_formset": mask_miltai_formset,
+        "copy_source_id": copy_source_id,
     }
     return render(request, "pozicijos/form.html", context)
 
