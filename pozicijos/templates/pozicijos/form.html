@@ -23,6 +23,9 @@
         {% include "pozicijos/components/form_error_summary.html" %}
 
       {% csrf_token %}
+    {% if copy_source_id %}
+    <input type="hidden" name="copy_source_id" value="{{ copy_source_id }}">
+    {% endif %}
 
 
 
