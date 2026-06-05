@@ -8,6 +8,14 @@
 
 {% block page_css %}
 <style>
+  /* Tik Detalių sąrašo puslapiui: platesnis darbinis plotas dideliuose ekranuose */
+  .container {
+    max-width: none;
+    width: calc(100vw - 24px);
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
   /* Paslepiam seną headerį (šitam puslapiui nereikia) */
   header, .navbar, .topbar { display: none !important; }
 
