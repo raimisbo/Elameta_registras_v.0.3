@@ -277,6 +277,7 @@
       let innerViewer = null;
       let navigation = null;
       let isLoaded = false;
+      let viewerLightBackground = false;
 
       let measureOn = false;
       let areaOn = false;
@@ -1238,12 +1239,114 @@
         );
       }
 
+      function improveModelVisibility() {
+        if (!innerViewer) return;
+
+        // Light background and moderate edges for better STEP visibility.
+        try {
+          applyViewerBackground();
+        } catch (e) {}
+
+        try {
+          if (typeof innerViewer.SetEdgeSettings === "function" && OVNS.EdgeSettings) {
+            innerViewer.SetEdgeSettings(
+              new OVNS.EdgeSettings(true, new OVNS.RGBColor(30, 41, 59), 1)
+            );
+          }
+        } catch (e) {}
+
+        // If a STEP file imports a nearly black material, brighten it only in browser view.
+        // The original .stp file is not modified.
+        try {
+          if (
+            innerViewer.mainModel &&
+            typeof innerViewer.mainModel.EnumerateMeshes === "function"
+          ) {
+            innerViewer.mainModel.EnumerateMeshes((mesh) => {
+              if (!mesh || !mesh.material) return;
+
+              const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+              for (const mat of materials) {
+                if (!mat) continue;
+
+                if (mat.color && typeof mat.color.setRGB === "function") {
+                  const r = Number(mat.color.r);
+                  const g = Number(mat.color.g);
+                  const b = Number(mat.color.b);
+                  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+                  if (!isFinite(lum) || lum < 0.18) {
+                    mat.color.setRGB(0.68, 0.70, 0.74);
+                  }
+                }
+
+                if ("metalness" in mat) mat.metalness = 0.05;
+                if ("roughness" in mat) mat.roughness = 0.65;
+                if ("opacity" in mat) mat.opacity = 1.0;
+                if ("transparent" in mat) mat.transparent = false;
+
+                mat.needsUpdate = true;
+              }
+            });
+          }
+        } catch (e) {}
+
+        try {
+          if (typeof innerViewer.Render === "function") innerViewer.Render();
+        } catch (e) {}
+      }
+
+
+      function applyViewerBackground() {
+        const btn = document.getElementById('btnBg');
+
+        const bg = viewerLightBackground
+          ? new OVNS.RGBAColor(243, 244, 246, 255)
+          : new OVNS.RGBAColor(11, 18, 32, 255);
+
+        const pageBg = viewerLightBackground ? "#f3f4f6" : "#0b1220";
+        const pageColor = viewerLightBackground ? "#111827" : "#e5e7eb";
+
+        try {
+          document.documentElement.style.background = pageBg;
+          document.body.style.background = pageBg;
+          document.body.style.color = pageColor;
+          host.style.background = pageBg;
+        } catch (e) {}
+
+        try {
+          if (innerViewer && typeof innerViewer.SetBackgroundColor === "function") {
+            innerViewer.SetBackgroundColor(bg);
+          }
+        } catch (e) {}
+
+        if (btn) {
+          btn.textContent = viewerLightBackground ? "Fonas: šviesus" : "Fonas: tamsus";
+          btn.classList.toggle("is-on", viewerLightBackground);
+        }
+
+        try {
+          if (innerViewer && typeof innerViewer.Render === "function") {
+            innerViewer.Render();
+          }
+        } catch (e) {}
+      }
+
+
       try {
         embedded = new OVNS.EmbeddedViewer(host, {
           backgroundColor : new OVNS.RGBAColor(11, 18, 32, 255),
-          defaultColor    : new OVNS.RGBColor(200, 200, 200),
+          defaultColor    : new OVNS.RGBColor(210, 213, 218),
+          edgeSettings    : new OVNS.EdgeSettings(true, new OVNS.RGBColor(30, 41, 59), 1),
+          edgeSettings    : new OVNS.EdgeSettings(true, new OVNS.RGBColor(148, 163, 184), 1),
           onModelLoaded: () => {
+            innerViewer = embedded.GetViewer();
+            navigation = innerViewer.navigation;
             isLoaded = true;
+            setTimeout(improveModelVisibility, 150);
+            setTimeout(() => forceViewerContrast("onModelLoaded 500ms"), 500);
+            setTimeout(enhanceStepViewerVisibility, 150);
             if (measureOn) {
               setStatus(
                 "Matavimas: spausk 1 tašką ant modelio, tada 2 tašką.\n" +
@@ -1265,6 +1368,7 @@
 
         innerViewer = embedded.GetViewer();
         navigation = innerViewer.navigation;
+        applyViewerBackground();
 
         const prevClick = navigation.onMouseClick;
         navigation.SetMouseClickHandler((button, mouseCoords) => {
@@ -1282,6 +1386,14 @@
           try { embedded.Resize(); } catch (e) {}
           if (measureOn || areaOn) updateOverlay();
         });
+
+        const btnBg = document.getElementById('btnBg');
+        if (btnBg) {
+          btnBg.addEventListener('click', () => {
+            viewerLightBackground = !viewerLightBackground;
+            applyViewerBackground();
+          });
+        }
 
         document.getElementById('btnMeasure').addEventListener('click', () => {
           setMeasureMode(!measureOn);
@@ -1355,6 +1467,7 @@
 
     <div class="right">
       <button id="btnClear" class="ui-btn" type="button" style="display:none;">Išvalyti</button>
+      <button id="btnBg" class="ui-btn" type="button">Fonas: tamsus</button>
       <button id="btnMeasure" class="ui-btn" type="button">Matuoti</button>
 
       <button id="btnArea" class="ui-btn" type="button">Plotas</button>
