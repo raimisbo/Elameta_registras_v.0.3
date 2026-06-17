@@ -255,14 +255,22 @@ class PozicijaForm(forms.ModelForm):
         # initial: pirmiau txt, jei nėra – numeric
         if self.instance and self.instance.pk:
             if self.instance.ktl_dangos_storis_txt:
-                self.fields["ktl_dangos_storis_um"].initial = self.instance.ktl_dangos_storis_txt
+                value = self.instance.ktl_dangos_storis_txt
+                self.initial["ktl_dangos_storis_um"] = value
+                self.fields["ktl_dangos_storis_um"].initial = value
             elif self.instance.ktl_dangos_storis_um is not None:
-                self.fields["ktl_dangos_storis_um"].initial = str(self.instance.ktl_dangos_storis_um)
+                value = str(self.instance.ktl_dangos_storis_um)
+                self.initial["ktl_dangos_storis_um"] = value
+                self.fields["ktl_dangos_storis_um"].initial = value
 
             if self.instance.miltai_dangos_storis_txt:
-                self.fields["miltai_dangos_storis_um"].initial = self.instance.miltai_dangos_storis_txt
+                value = self.instance.miltai_dangos_storis_txt
+                self.initial["miltai_dangos_storis_um"] = value
+                self.fields["miltai_dangos_storis_um"].initial = value
             elif self.instance.miltai_dangos_storis_um is not None:
-                self.fields["miltai_dangos_storis_um"].initial = str(self.instance.miltai_dangos_storis_um)
+                value = str(self.instance.miltai_dangos_storis_um)
+                self.initial["miltai_dangos_storis_um"] = value
+                self.fields["miltai_dangos_storis_um"].initial = value
 
         if not getattr(self.instance, "pk", None):
             if "papildomos_paslaugos" in self.fields:
