@@ -282,9 +282,9 @@
     color:#6b7280;
   }
 
-  .drawer-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:.2s;}
+  .drawer-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:.2s; z-index:19990;}
   .drawer-backdrop.open{opacity:1; pointer-events:auto;}
-  .drawer{position:fixed; top:0; right:-320px; width:320px; height:100vh; background:#fff; box-shadow:-2px 0 8px rgba(0,0,0,.25); transition:.2s; display:flex; flex-direction:column; z-index:100;}
+  .drawer{position:fixed; top:0; right:-320px; width:320px; height:100vh; background:#fff; box-shadow:-2px 0 8px rgba(0,0,0,.25); transition:.2s; display:flex; flex-direction:column; z-index:20000;}
   .drawer.open{right:0;}
   .drawer-header{display:flex; justify-content:space-between; align-items:center; padding:.75rem .75rem; border-bottom:1px solid #eee;}
   .drawer-body{padding:.75rem .75rem; overflow:auto; display:flex; flex-direction:column; gap:.5rem;}
