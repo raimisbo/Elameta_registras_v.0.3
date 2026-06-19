@@ -37,6 +37,31 @@
 
   .pozicija-detail-page .note { margin-top:8px; color:#6b7280; font-size:0.88rem; line-height:1.35; }
   .pozicija-detail-page .note code { background:#eef2ff; padding:1px 4px; border-radius:4px; }
+  .pozicija-detail-page .frame-metrics {
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap:8px;
+  }
+  .pozicija-detail-page .frame-metrics-row {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    border:1px solid #e5e7eb;
+    background:#fff;
+    border-radius:6px;
+    padding:8px 10px;
+  }
+  .pozicija-detail-page .frame-metrics-label {
+    color:#374151;
+    font-size:0.9rem;
+  }
+  .pozicija-detail-page .frame-metrics-value {
+    color:#111827;
+    font-size:1rem;
+    font-weight:600;
+    white-space:nowrap;
+  }
 </style>
 {% endblock %}
 
@@ -95,6 +120,38 @@
       {% if not kainos_can_delete %}
         Trinti kainų eilučių šiame lange negalima (tik administratoriui).
       {% endif %}
+    </div>
+  </section>
+
+  <section class="poz-card" style="margin-bottom:12px;">
+    <h2 class="poz-card-title">Rėmo reikšmės</h2>
+
+    <div class="frame-metrics">
+      <div class="frame-metrics-row">
+        <span class="frame-metrics-label">Rėmo plotas</span>
+        <span class="frame-metrics-value">
+          {% if pozicija.remo_plotas is not None %}
+            {{ pozicija.remo_plotas|floatformat:3 }} m²
+          {% else %}
+            —
+          {% endif %}
+        </span>
+      </div>
+
+      <div class="frame-metrics-row">
+        <span class="frame-metrics-label">Rėmo svoris</span>
+        <span class="frame-metrics-value">
+          {% if pozicija.remo_svoris is not None %}
+            {{ pozicija.remo_svoris|floatformat:3 }} kg
+          {% else %}
+            —
+          {% endif %}
+        </span>
+      </div>
+    </div>
+
+    <div class="note">
+      Skaičiuojama: detalės plotas / svoris × KTL detalių kiekis rėme.
     </div>
   </section>
 

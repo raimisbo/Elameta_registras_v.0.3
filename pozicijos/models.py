@@ -246,6 +246,62 @@ class Pozicija(models.Model):
         except (InvalidOperation, TypeError, ValueError):
             return str(value)
 
+    def _decimal_from_text(self, value):
+        """
+        Saugi pagalbinė funkcija skaičiuojamoms reikšmėms iš tekstinių laukų.
+        Priima ir lietuvišką kablelį, ir tašką.
+        """
+        if value is None:
+            return None
+
+        text = str(value).strip().replace("\u00a0", " ").replace(" ", "")
+        if not text:
+            return None
+
+        if "," in text and "." in text and text.rfind(",") > text.rfind("."):
+            text = text.replace(".", "").replace(",", ".")
+        else:
+            text = text.replace(",", ".")
+
+        try:
+            return Decimal(text)
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+
+    @property
+    def remo_plotas(self):
+        """
+        Rėmo plotas = detalės plotas × KTL detalių kiekis rėme.
+        DB lauko nekuria – skaičiuojama iš jau esamų reikšmių.
+        """
+        qty = self.ktl_detaliu_kiekis_reme
+        plotas = self._decimal_from_text(self.plotas)
+
+        if qty is None or plotas is None:
+            return None
+
+        try:
+            return plotas * Decimal(qty)
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+
+    @property
+    def remo_svoris(self):
+        """
+        Rėmo svoris = detalės svoris × KTL detalių kiekis rėme.
+        DB lauko nekuria – skaičiuojama iš jau esamų reikšmių.
+        """
+        qty = self.ktl_detaliu_kiekis_reme
+        svoris = self._decimal_from_text(self.svoris)
+
+        if qty is None or svoris is None:
+            return None
+
+        try:
+            return svoris * Decimal(qty)
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+
     @property
     def ktl_matmenys_iag(self):
         if self.ktl_ilgis_mm is None or self.ktl_aukstis_mm is None or self.ktl_gylis_mm is None:
