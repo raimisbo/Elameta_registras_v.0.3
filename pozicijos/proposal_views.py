@@ -92,6 +92,39 @@ def _fmt_local_date(value) -> str:
     return str(value)[:10]
 
 
+def _safe_pdf_filename_part(value, fallback: str = "offer") -> str:
+    """
+    Saugus PDF failo vardo fragmentas Windows / Edge / Chrome atsisiuntimui.
+    Paliekam tik ASCII raides, skaičius, tašką, brūkšnį ir pabraukimą.
+    """
+    raw = str(value or "").strip()
+    safe = "".join(
+        ch if (ch.isascii() and (ch.isalnum() or ch in "-_.")) else "_"
+        for ch in raw
+    )
+    safe = safe.strip("._-")[:80]
+    return safe or fallback
+
+
+def _pdf_response(pdf_bytes: bytes, filename_base: str, inline: bool = True) -> HttpResponse:
+    """
+    Centralizuotas PDF response su aiškiais headers.
+    inline paliekam pagal dabartinę elgseną, bet failo vardą ir MIME apsaugą sutvarkom.
+    """
+    safe_base = _safe_pdf_filename_part(filename_base, fallback="offer")
+    disposition = "inline" if inline else "attachment"
+    filename = f"{safe_base}.pdf"
+
+    resp = HttpResponse(pdf_bytes, content_type="application/pdf")
+    resp["Content-Disposition"] = f'{disposition}; filename="{filename}"'
+    resp["X-Content-Type-Options"] = "nosniff"
+    resp["Content-Length"] = str(len(pdf_bytes))
+    resp["Cache-Control"] = "private, max-age=0, no-cache, no-store, must-revalidate"
+    resp["Pragma"] = "no-cache"
+    resp["Expires"] = "0"
+    return resp
+
+
 # ============================================================================
 # Labels / translations
 # ============================================================================
@@ -1184,10 +1217,11 @@ def proposal_pdf(request, pk: int):
     c.showPage()
     c.save()
 
-    resp = HttpResponse(content_type="application/pdf")
-    resp["Content-Disposition"] = f'inline; filename="offer_{pozicija.poz_kodas or pozicija.pk}.pdf"'
-    resp.write(buf.getvalue())
-    return resp
+    return _pdf_response(
+        buf.getvalue(),
+        filename_base=f"offer_{pozicija.poz_kodas or pozicija.pk}",
+        inline=True,
+    )
 
 
 def project_proposal_pdf(request):
@@ -1669,8 +1703,9 @@ def project_proposal_pdf(request):
         for ch in project
     ).strip("_")[:80] or "project"
 
-    resp = HttpResponse(content_type="application/pdf")
-    resp["Content-Disposition"] = f'inline; filename="project_offer_{safe_project}.pdf"'
-    resp.write(buf.getvalue())
-    return resp
+    return _pdf_response(
+        buf.getvalue(),
+        filename_base=f"project_offer_{safe_project}",
+        inline=True,
+    )
 
