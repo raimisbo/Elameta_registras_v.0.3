@@ -59,6 +59,23 @@
     margin-top:.15rem;
   }
   .active-project-summary[hidden]{display:none;}
+  .active-project-summary a{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    margin-left:8px;
+    padding:3px 8px;
+    border:1px solid #93c5fd;
+    border-radius:5px;
+    background:#fff;
+    color:#1d4ed8;
+    text-decoration:none;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .active-project-summary a:hover{
+    background:#dbeafe;
+  }
 
   .graph-box{
     display:flex;
@@ -975,22 +992,29 @@
 
     if (!project) {
       activeProjectSummary.hidden = true;
-      activeProjectSummary.textContent = "";
+      activeProjectSummary.innerHTML = "";
       return;
     }
 
     activeProjectSummary.hidden = false;
-    activeProjectSummary.textContent = `Aktyvus projektas: ${project} · Detalių: ${total || 0}`;
+    activeProjectSummary.innerHTML = "";
+
+    const text = document.createElement("span");
+    text.textContent = `Aktyvus projektas: ${project} · Detalių: ${total || 0}`;
+    activeProjectSummary.appendChild(text);
 
     if (canProjectProposal) {
-      const link = document.createElement("a");
-      link.href = `${projectProposalUrl}?projektas=${encodeURIComponent(project)}`;
-      link.target = "_blank";
-      link.rel = "noopener";
-      link.textContent = "Projektinis pasiūlymas PDF";
-      link.style.marginLeft = "12px";
-      link.style.fontWeight = "700";
-      activeProjectSummary.appendChild(link);
+      const makeProjectProposalLink = (lang, label) => {
+        const link = document.createElement("a");
+        link.href = `${projectProposalUrl}?projektas=${encodeURIComponent(project)}&lang=${encodeURIComponent(lang)}`;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = label;
+        return link;
+      };
+
+      activeProjectSummary.appendChild(makeProjectProposalLink("lt", "Projektinis pasiūlymas PDF LT"));
+      activeProjectSummary.appendChild(makeProjectProposalLink("en", "Project proposal PDF EN"));
     }
   }
 
