@@ -426,6 +426,10 @@ def _csv_value(obj: Pozicija, key: str) -> str:
     if key == "metalo_storiai_display":
         return str(getattr(obj, "metalo_storiai_display", "") or "")
 
+    if key in ("remo_plotas", "remo_svoris"):
+        value = getattr(obj, key, None)
+        return _csv_decimal(value, places=3) if value is not None else ""
+
     if key == "kaina_eur":
         k_min = getattr(obj, "kaina_min", None)
         k_max = getattr(obj, "kaina_max", None)

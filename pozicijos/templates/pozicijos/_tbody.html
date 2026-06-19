@@ -67,6 +67,20 @@
             —
           {% endif %}
 
+        {% elif c.key == "remo_plotas" %}
+          {% if it.remo_plotas is not None %}
+            {{ it.remo_plotas|lt_decimal:3 }}
+          {% else %}
+            —
+          {% endif %}
+
+        {% elif c.key == "remo_svoris" %}
+          {% if it.remo_svoris is not None %}
+            {{ it.remo_svoris|lt_decimal:3 }}
+          {% else %}
+            —
+          {% endif %}
+
         {% elif c.key == "kaina_eur" %}
           {% if it.kaina_min is not None and it.kaina_max is not None %}
             {% if it.kaina_min == it.kaina_max %}
