@@ -11,8 +11,8 @@ from django.core.exceptions import PermissionDenied
 from django.core.files.base import File
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, IntegerField, Value, Q, Min, Max, CharField
-from django.db.models.functions import Cast, Coalesce
+from django.db.models import Count, IntegerField, Value, Q, Min, Max, CharField, DecimalField, F, ExpressionWrapper
+from django.db.models.functions import Cast, Coalesce, NullIf, Replace
 from django.http import JsonResponse, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.template.loader import render_to_string
@@ -201,6 +201,30 @@ def _base_list_qs():
             metalo_storiai_display=Coalesce(
                 Cast("metalo_storis", CharField()),
                 Value("", output_field=CharField()),
+            ),
+        )
+        .annotate(
+            plotas_num=Cast(
+                NullIf(Replace("plotas", Value(","), Value(".")), Value("")),
+                DecimalField(max_digits=18, decimal_places=6),
+            ),
+            svoris_num=Cast(
+                NullIf(Replace("svoris", Value(","), Value(".")), Value("")),
+                DecimalField(max_digits=18, decimal_places=6),
+            ),
+            ktl_kiekis_reme_num=Cast(
+                "ktl_detaliu_kiekis_reme",
+                DecimalField(max_digits=18, decimal_places=6),
+            ),
+        )
+        .annotate(
+            remo_plotas_calc=ExpressionWrapper(
+                F("plotas_num") * F("ktl_kiekis_reme_num"),
+                output_field=DecimalField(max_digits=18, decimal_places=6),
+            ),
+            remo_svoris_calc=ExpressionWrapper(
+                F("svoris_num") * F("ktl_kiekis_reme_num"),
+                output_field=DecimalField(max_digits=18, decimal_places=6),
             ),
         )
     )

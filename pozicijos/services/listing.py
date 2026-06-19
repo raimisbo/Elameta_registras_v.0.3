@@ -406,6 +406,15 @@ def apply_filters(qs: QuerySet, request) -> QuerySet:
         if not raw_key or not value:
             continue
 
+        # Rėmo reikšmės sąraše yra skaičiuojamos _base_list_qs anotacijose.
+        if raw_key in ("remo_plotas", "remo_svoris"):
+            calc_field = "remo_plotas_calc" if raw_key == "remo_plotas" else "remo_svoris_calc"
+            q_num = build_numeric_range_q(calc_field, value)
+            if q_num is None:
+                return qs.none()
+            qs = qs.filter(q_num)
+            continue
+
         # Metalo storis sąraše rodomas kaip virtualus display laukas,
         # bet realiai saugomas per:
         #   - naują struktūrą: MetaloStorisEilute.storis_mm
@@ -507,7 +516,11 @@ def apply_sorting(qs: QuerySet, request) -> QuerySet:
     model_fields = _model_field_names(qs.model)
     sortable = _sortable_fields(model_fields)
 
-    field = sortable.get(sort)
+    if sort in ("remo_plotas", "remo_svoris"):
+        field = "remo_plotas_calc" if sort == "remo_plotas" else "remo_svoris_calc"
+    else:
+        field = sortable.get(sort)
+
     if not field:
         return qs.order_by("-created", "-id")
 
