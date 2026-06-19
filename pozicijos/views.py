@@ -364,10 +364,24 @@ def pozicijos_tbody(request):
 
 
 def pozicijos_stats(request):
-    qs = Pozicija.objects.all()
+    # Naudojam tą patį bazinį queryset kaip sąrašas, kad veiktų ir
+    # skaičiuojami/anotuoti filtrai, pvz. Rėmo plotas / Rėmo svoris.
+    #
+    # Svarbu: _base_list_qs() turi JOIN/annotate per brėžinius ir kainas,
+    # todėl statistikoje pirmiausia atsirenkame unikalias detales,
+    # o tik tada skaičiuojame pagal klientą.
+    qs = _base_list_qs()
     qs = apply_filters(qs, request)
 
-    data = qs.values("klientas").annotate(cnt=Count("id")).order_by("-cnt")
+    filtered_ids = qs.values("id").distinct()
+
+    data = (
+        Pozicija.objects
+        .filter(id__in=filtered_ids)
+        .values("klientas")
+        .annotate(cnt=Count("id"))
+        .order_by("-cnt")
+    )
 
     labels: list[str] = []
     values: list[int] = []
