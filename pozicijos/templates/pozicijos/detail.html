@@ -77,6 +77,33 @@
   .poz-field-label{ color:#777; text-align:left; }
   .poz-field-value{ color:#222; word-break:break-word; overflow-wrap:anywhere; }
 
+  @keyframes frameLimitAlertPulse {
+    0%, 100% {
+      color:#991b1b;
+      background:#fee2e2;
+      border-color:#fecaca;
+      opacity:1;
+    }
+    50% {
+      color:#dc2626;
+      background:#fff1f2;
+      border-color:#f87171;
+      opacity:.55;
+    }
+  }
+  .frame-limit-alert{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    padding:1px 6px;
+    border:1px solid #fecaca;
+    border-radius:6px;
+    color:#991b1b;
+    background:#fee2e2;
+    font-weight:800;
+    animation:frameLimitAlertPulse 1.15s ease-in-out infinite;
+  }
+
   .poz-field-value--alert{
     color:#b91c1c; font-weight:700; animation:blink 1s ease-in-out infinite alternate;
   }
@@ -279,6 +306,39 @@
         <div class="poz-field-row"><span class="poz-field-label">Plotas (m²)</span><span class="poz-field-value">{% if pozicija.plotas is not None %}{{ pozicija.plotas }}{% else %}—{% endif %}</span>
         </div>
         <div class="poz-field-row"><span class="poz-field-label">Svoris (kg)</span><span class="poz-field-value">{% if pozicija.svoris %}{{ pozicija.svoris|floatformat:3 }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="poz-field-row">
+          <span class="poz-field-label">Rėmo plotas (m²)</span>
+          <span class="poz-field-value">
+            {% if pozicija.remo_plotas is not None %}
+              {% if pozicija.remo_plotas >= 30 %}
+                <span class="frame-limit-alert" title="Rėmo plotas viršija arba lygus 30 m² limitui.">
+                  {{ pozicija.remo_plotas|lt_decimal:3 }}
+                </span>
+              {% else %}
+                {{ pozicija.remo_plotas|lt_decimal:3 }}
+              {% endif %}
+            {% else %}
+              —
+            {% endif %}
+          </span>
+        </div>
+
+        <div class="poz-field-row">
+          <span class="poz-field-label">Rėmo svoris (kg)</span>
+          <span class="poz-field-value">
+            {% if pozicija.remo_svoris is not None %}
+              {% if pozicija.remo_svoris >= 400 %}
+                <span class="frame-limit-alert" title="Rėmo svoris viršija arba lygus 400 kg limitui.">
+                  {{ pozicija.remo_svoris|lt_decimal:3 }}
+                </span>
+              {% else %}
+                {{ pozicija.remo_svoris|lt_decimal:3 }}
+              {% endif %}
+            {% else %}
+              —
+            {% endif %}
+          </span>
         </div>
         <div class="poz-field-row"><span class="poz-field-label">Matmenys (xyz)</span><span class="poz-field-value">{% if pozicija.matmenys_xyz %}{{ pozicija.matmenys_xyz }}{% else %}—{% endif %}</span>
         </div>
